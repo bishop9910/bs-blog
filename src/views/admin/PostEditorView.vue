@@ -171,7 +171,9 @@ async function togglePublish() {
       ? await unpublishPost(postId.value)
       : await publishPost(postId.value)
     status.value = updated.status
-    message.success(isPublished.value ? '已转为草稿' : '已发布')
+    // Report the status the server actually stored. Reading isPublished here
+    // would be a read-after-write of the line above, inverting the message.
+    message.success(updated.status === 'published' ? '已发布' : '已转为草稿')
   } catch (caught) {
     message.error(caught instanceof Error ? caught.message : '操作失败')
   } finally {
