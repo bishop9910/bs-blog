@@ -1,0 +1,133 @@
+{
+  "_note": "Shared text-contract cases. Both implementations of the blog's text helpers must produce these exact values: the frontend's src/utils/text.ts and the backend's internal/pkg/textutil. Asserted by scripts/check-text-contract.mjs and by backend/internal/pkg/textutil/textutil_test.go. Keep the two implementations in step with THIS file, not with each other.",
+  "_why": "The server recomputes slug / wordCount / readingMinutes when a post is saved. If the editor's preview drifts, the author is shown a slug and a reading time that are not the ones stored.",
+  "_limitations": "stripHtml decodes HTML entities via the DOM in the browser and via html.UnescapeString in Go; under Node the DOM branch is unavailable, so entity cases are deliberately not covered here.",
+  "excerptLimit": 160,
+  "cases": [
+    {
+      "name": "latin-basic",
+      "input": "Hello World",
+      "slug": "hello-world",
+      "words": 2,
+      "minutes": 1,
+      "excerpt": "Hello World"
+    },
+    {
+      "name": "cjk-title-survives-slugify",
+      "input": "第一篇文章",
+      "slug": "第一篇文章",
+      "words": 5,
+      "minutes": 1,
+      "excerpt": "第一篇文章"
+    },
+    {
+      "name": "cjk-and-latin-mixed",
+      "input": "Vue 3 + Kratos 后端",
+      "slug": "vue-3-kratos-后端",
+      "words": 5,
+      "minutes": 1,
+      "excerpt": "Vue 3 + Kratos 后端"
+    },
+    {
+      "name": "accents-folded-away",
+      "input": "Café",
+      "slug": "cafe",
+      "words": 1,
+      "minutes": 1,
+      "excerpt": "Café"
+    },
+    {
+      "name": "punctuation-becomes-a-separator",
+      "input": "Hello, World! (2026)",
+      "slug": "hello-world-2026",
+      "words": 3,
+      "minutes": 1,
+      "excerpt": "Hello, World! (2026)"
+    },
+    {
+      "name": "underscores-become-dashes",
+      "input": "snake_case_name",
+      "slug": "snake-case-name",
+      "words": 3,
+      "minutes": 1
+    },
+    {
+      "name": "dots-do-not-join-words",
+      "input": "a.b.c",
+      "slug": "a-b-c",
+      "words": 3,
+      "minutes": 1
+    },
+    {
+      "name": "apostrophe-does-not-join-words",
+      "input": "don't stop",
+      "slug": "don-t-stop",
+      "words": 3,
+      "minutes": 1
+    },
+    {
+      "name": "empty-string",
+      "input": "",
+      "slug": "",
+      "words": 0,
+      "minutes": 1,
+      "excerpt": ""
+    },
+    {
+      "name": "whitespace-only",
+      "input": "   ",
+      "slug": "",
+      "words": 0,
+      "minutes": 1,
+      "excerpt": ""
+    },
+    {
+      "name": "markup-stripped-for-counting",
+      "input": "<p>Hello <strong>World</strong></p>",
+      "slug": "p-hello-strong-world-strong-p",
+      "words": 2,
+      "minutes": 1,
+      "excerpt": "Hello World"
+    },
+    {
+      "name": "script-and-style-dropped-entirely",
+      "input": "<p>Hi</p><script>alert('x')</script><style>p{}</style>",
+      "slug": "p-hi-p-script-alert-x-script-style-p-style",
+      "words": 1,
+      "minutes": 1,
+      "excerpt": "Hi"
+    },
+    {
+      "name": "slug-truncated-to-80",
+      "inputBuild": [{ "unit": "a", "count": 90 }],
+      "slugBuild": [{ "unit": "a", "count": 80 }],
+      "words": 1,
+      "minutes": 1
+    },
+    {
+      "name": "slug-cut-never-ends-in-a-dash",
+      "inputBuild": [
+        { "unit": "a", "count": 79 },
+        { "unit": "-", "count": 1 },
+        { "unit": "b", "count": 10 }
+      ],
+      "slugBuild": [{ "unit": "a", "count": 79 }],
+      "words": 2,
+      "minutes": 1
+    },
+    {
+      "name": "400-cjk-read-as-2-minutes",
+      "inputBuild": [{ "unit": "中", "count": 400 }],
+      "slugBuild": [{ "unit": "中", "count": 80 }],
+      "words": 400,
+      "minutes": 2
+    },
+    {
+      "name": "hangul-counts-as-cjk-too",
+      "inputBuild": [{ "unit": "한", "count": 400 }],
+      "slugBuild": [{ "unit": "한", "count": 80 }],
+      "words": 400,
+      "minutes": 2
+    }
+  ]
+}

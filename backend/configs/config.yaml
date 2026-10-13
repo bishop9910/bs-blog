@@ -1,0 +1,65 @@
+# bs-blog backend configuration.
+#
+# Every key is optional — anything omitted keeps the value baked into
+# internal/conf. Paths are resolved relative to the directory the server is
+# started from, so the documented invocation is:
+#
+#   cd backend && go run ./cmd/server
+
+server:
+  # Listen address. 127.0.0.1 only accepts connections from this machine;
+  # 0.0.0.0 binds every interface so other machines on the LAN can reach it too.
+  # Changing this only affects the listener -- the password lock is unchanged.
+  addr: "0.0.0.0:8080"
+  # How long a request body may take to arrive.
+  readTimeout: 60s
+  # Kept generous on purpose: image uploads stream through this timeout.
+  writeTimeout: 120s
+  # Keep-alive window.
+  idleTimeout: 120s
+  # Hard cap on every request body, uploads included. 12 MiB.
+  maxBodyBytes: 12582912
+  # Directory of the built frontend (pnpm build writes to ../dist). Unknown
+  # page paths fall back to index.html so deep links reach the client router.
+  # Set to "" to run as an API-only server.
+  staticDir: "../dist"
+
+data:
+  # SQLite file. Its parent directory is created when missing.
+  database: "data/blog.db"
+  # Where uploaded images are written. Public URLs are generated from
+  # uploadUrl plus a year/month path, so keep this directory outside version
+  # control.
+  uploadDir: "data/uploads"
+  # URL prefix the uploaded files are served under. Article HTML stores this
+  # value verbatim, so changing it breaks links in existing posts.
+  uploadUrl: "/uploads"
+  # Per-image ceiling. Must stay below server.maxBodyBytes.
+  maxUploadBytes: 10485760
+
+auth:
+  # Optional hex-encoded signing key, at least 32 bytes. Leave empty to use
+  # secretFile, which is generated once on first boot and then reused — a fresh
+  # key would invalidate every existing login.
+  secret: "0f0da18747251c7942f5180e67de55ce746775e6611578803d1d6088030b3884"
+  secretFile: "data/jwt.secret"
+  # How long a login lasts. 7 days.
+  tokenTtl: 168h
+  # bcrypt work factor. 12 is the sensible default on modern hardware.
+  bcryptCost: 12
+  # Optional shared secret for the first-run claim endpoint. Empty means the
+  # first visitor to POST /auth/setup becomes the owner.
+  setupToken: "c3ed1930ec7d53e82cd70092bc7b814de13f0db75af8e68c6a66262a286406f7"
+
+cors:
+  # The Vite dev server runs on another origin, so this is on by default.
+  # With the proxy in vite.config.ts, or when staticDir serves the frontend
+  # from this same server, CORS is not needed at all.
+  enabled: true
+  allowedOrigins:
+    - "http://localhost:5173"
+    - "http://127.0.0.1:5173"
+
+log:
+  # "debug" also turns on verbose SQL logging.
+  level: "info"

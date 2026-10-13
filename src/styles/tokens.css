@@ -1,0 +1,236 @@
+/* ==========================================================================
+   bs-blog — Design Tokens
+   Layered: palette -> semantic -> component-scoped aliases.
+   Never hardcode a hex outside the palette layer.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. Palette (raw values, no meaning attached)
+   -------------------------------------------------------------------------- */
+:root {
+  /* Neutral ramp — zinc-flavoured, tuned to the #18181B anchor */
+  --p-zinc-950: #09090b;
+  --p-zinc-925: #111113;
+  --p-zinc-900: #18181b;
+  --p-zinc-850: #1f1f23;
+  --p-zinc-800: #27272a;
+  --p-zinc-700: #3f3f46;
+  --p-zinc-600: #52525b;
+  --p-zinc-500: #71717a;
+  --p-zinc-400: #a1a1aa;
+  --p-zinc-300: #d4d4d8;
+  --p-zinc-200: #e4e4e7;
+  --p-zinc-100: #f4f4f5;
+  --p-zinc-50: #fafafa;
+  --p-white: #ffffff;
+
+  /* Accent — the single loud colour. Pink is the brand. */
+  --p-pink-300: #f9a8d4;
+  --p-pink-400: #f472b6;
+  --p-pink-500: #ec4899;
+  --p-pink-600: #db2777;
+  --p-pink-700: #be185d;
+
+  /* Status */
+  --p-green-500: #22c55e;
+  --p-green-600: #16a34a;
+  --p-amber-500: #f59e0b;
+  --p-amber-600: #d97706;
+  --p-red-500: #ef4444;
+  --p-red-600: #dc2626;
+  --p-blue-400: #60a5fa;
+  --p-blue-500: #3b82f6;
+
+  /* Highlight wash for editor selections */
+  --p-lime-200: #d9f99d;
+  --p-lime-300: #bef264;
+}
+
+/* --------------------------------------------------------------------------
+   2. Semantic tokens — the only names components may reference
+   -------------------------------------------------------------------------- */
+:root,
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --bg-base: var(--p-zinc-950);
+  --bg-subtle: var(--p-zinc-925);
+  --bg-elevated: var(--p-zinc-900);
+  --bg-inset: #0c0c0e;
+  --bg-card: var(--p-zinc-900);
+  --bg-hover: var(--p-zinc-850);
+  --bg-active: var(--p-zinc-800);
+
+  --border-subtle: var(--p-zinc-800);
+  --border-strong: var(--p-zinc-700);
+  --border-accent: var(--p-pink-500);
+
+  --text-primary: var(--p-zinc-50);
+  --text-secondary: var(--p-zinc-400);
+  --text-muted: var(--p-zinc-500);
+  --text-inverse: var(--p-zinc-950);
+  --text-on-accent: var(--p-white);
+
+  --accent: var(--p-pink-500);
+  --accent-hover: var(--p-pink-400);
+  --accent-pressed: var(--p-pink-600);
+  --accent-subtle: rgb(236 72 153 / 14%);
+  --accent-border: rgb(236 72 153 / 35%);
+
+  --success: var(--p-green-500);
+  --warning: var(--p-amber-500);
+  --danger: var(--p-red-500);
+  --info: var(--p-blue-400);
+
+  --focus-ring: var(--p-pink-400);
+
+  /* Ambient / decorative */
+  --glow-accent: 0 0 0 1px rgb(236 72 153 / 20%), 0 8px 40px -12px rgb(236 72 153 / 45%);
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 40%);
+  --shadow-md: 0 4px 16px -4px rgb(0 0 0 / 55%);
+  --shadow-lg: 0 16px 48px -12px rgb(0 0 0 / 65%);
+  --grain-opacity: 0.04;
+  --grid-line: rgb(255 255 255 / 4%);
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+
+  --bg-base: var(--p-zinc-50);
+  --bg-subtle: var(--p-zinc-100);
+  --bg-elevated: var(--p-white);
+  --bg-inset: var(--p-zinc-100);
+  --bg-card: var(--p-white);
+  --bg-hover: var(--p-zinc-100);
+  --bg-active: var(--p-zinc-200);
+
+  --border-subtle: var(--p-zinc-200);
+  --border-strong: var(--p-zinc-300);
+  --border-accent: var(--p-pink-600);
+
+  --text-primary: var(--p-zinc-950);
+  --text-secondary: var(--p-zinc-600);
+  --text-muted: var(--p-zinc-500);
+  --text-inverse: var(--p-zinc-50);
+  --text-on-accent: var(--p-white);
+
+  --accent: var(--p-pink-600);
+  --accent-hover: var(--p-pink-700);
+  --accent-pressed: var(--p-pink-700);
+  --accent-subtle: rgb(219 39 119 / 10%);
+  --accent-border: rgb(219 39 119 / 28%);
+
+  --success: var(--p-green-600);
+  --warning: var(--p-amber-600);
+  --danger: var(--p-red-600);
+  --info: var(--p-blue-500);
+
+  --focus-ring: var(--p-pink-600);
+
+  --glow-accent: 0 0 0 1px rgb(219 39 119 / 18%), 0 8px 40px -14px rgb(219 39 119 / 35%);
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 6%);
+  --shadow-md: 0 4px 16px -4px rgb(0 0 0 / 10%);
+  --shadow-lg: 0 16px 48px -12px rgb(0 0 0 / 16%);
+  --grain-opacity: 0.025;
+  --grid-line: rgb(0 0 0 / 4%);
+}
+
+/* --------------------------------------------------------------------------
+   3. Typography
+   -------------------------------------------------------------------------- */
+:root {
+  --font-display: 'Libre Bodoni', 'Noto Serif SC', georgia, 'Times New Roman', serif;
+  --font-body: 'Public Sans', 'Noto Sans SC', -apple-system, blinkmacsystemfont,
+    'Segoe UI', roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', 'SFMono-Regular', consolas, 'Liberation Mono', monospace;
+
+  /* Fluid type scale */
+  --text-2xs: 0.6875rem; /* 11px */
+  --text-xs: 0.75rem; /* 12px */
+  --text-sm: 0.875rem; /* 14px */
+  --text-base: 1rem; /* 16px */
+  --text-lg: 1.125rem; /* 18px */
+  --text-xl: 1.375rem; /* 22px */
+  --text-2xl: clamp(1.5rem, 1.2rem + 1.5vw, 2rem);
+  --text-3xl: clamp(1.875rem, 1.4rem + 2.4vw, 2.75rem);
+  --text-4xl: clamp(2.25rem, 1.5rem + 3.8vw, 3.75rem);
+  --text-5xl: clamp(2.75rem, 1.6rem + 5.8vw, 5.25rem);
+
+  --leading-tight: 1.15;
+  --leading-snug: 1.35;
+  --leading-normal: 1.6;
+  --leading-relaxed: 1.8;
+
+  --tracking-tight: -0.02em;
+  --tracking-normal: 0;
+  --tracking-wide: 0.02em;
+  --tracking-caps: 0.12em;
+
+  /* Measure — long-form stays inside the 45–75ch band */
+  --measure: 68ch;
+  --measure-narrow: 54ch;
+}
+
+/* --------------------------------------------------------------------------
+   4. Space, radius, layout, motion
+   -------------------------------------------------------------------------- */
+:root {
+  --space-2xs: 2px;
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-2xl: 48px;
+  --space-3xl: 64px;
+  --space-4xl: 96px;
+
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-full: 9999px;
+
+  --container-sm: 640px;
+  --container-md: 900px;
+  --container-lg: 1200px;
+  --container-xl: 1440px;
+
+  --header-h: 64px;
+  --z-base: 1;
+  --z-sticky: 100;
+  --z-overlay: 300;
+  --z-modal: 400;
+  --z-toast: 500;
+  --z-max: 9999;
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --dur-instant: 80ms;
+  --dur-fast: 150ms;
+  --dur-normal: 250ms;
+  --dur-slow: 400ms;
+  --dur-slower: 700ms;
+
+  --icon-sm: 16px;
+  --icon-md: 20px;
+  --icon-lg: 24px;
+
+  /* Minimum interactive hit area (WCAG 2.5.8 target size) */
+  --hit-min: 44px;
+}
+
+/* --------------------------------------------------------------------------
+   5. Reduced motion — kill decoration, keep feedback
+   -------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-instant: 0ms;
+    --dur-fast: 0ms;
+    --dur-normal: 0ms;
+    --dur-slow: 0ms;
+    --dur-slower: 0ms;
+  }
+}

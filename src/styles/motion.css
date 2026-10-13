@@ -1,0 +1,152 @@
+/* ==========================================================================
+   bs-blog — Motion layer
+   Entrance/reveal primitives, grain, and accents.
+   Everything here is inert under prefers-reduced-motion.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   v-reveal — elements are only hidden once JS has taken over, so the
+   no-JS/SSR render still shows the full page.
+   -------------------------------------------------------------------------- */
+.reveal {
+  opacity: 0;
+  transform: translate3d(0, var(--reveal-distance, 18px), 0);
+  transition:
+    opacity var(--dur-slower) var(--ease-out) var(--reveal-delay, 0ms),
+    transform var(--dur-slower) var(--ease-out) var(--reveal-delay, 0ms);
+  will-change: opacity, transform;
+}
+
+.reveal.is-revealed {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+  will-change: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Route transitions
+   -------------------------------------------------------------------------- */
+.route-fade-enter-active {
+  transition: opacity var(--dur-slow) var(--ease-out);
+}
+
+.route-fade-leave-active {
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+
+.route-fade-enter-from,
+.route-fade-leave-to {
+  opacity: 0;
+}
+
+/* --------------------------------------------------------------------------
+   Ambient grain — an inline SVG turbulence, no image asset and no dependency.
+   Pointer-events off; sits above the page but below overlays.
+   -------------------------------------------------------------------------- */
+.grain {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-sticky);
+  opacity: var(--grain-opacity);
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+  mix-blend-mode: overlay;
+}
+
+:root[data-theme='light'] .grain {
+  mix-blend-mode: multiply;
+}
+
+/* --------------------------------------------------------------------------
+   Text accents
+   -------------------------------------------------------------------------- */
+
+/* Animated underline that draws in from the left on hover/focus. */
+.link-underline {
+  position: relative;
+  display: inline-block;
+}
+
+.link-underline::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 100%;
+  height: 1px;
+  background-color: currentcolor;
+  transform: scaleX(0);
+  transform-origin: right;
+  transition: transform var(--dur-normal) var(--ease-out);
+}
+
+.link-underline:hover::after,
+.link-underline:focus-visible::after {
+  transform: scaleX(1);
+  transform-origin: left;
+}
+
+/* Editorial drop cap for the opening paragraph of a post. */
+.dropcap::first-letter {
+  float: left;
+  margin: 0.06em 0.09em 0 0;
+  color: var(--accent);
+  font-family: var(--font-display);
+  font-size: 3.4em;
+  font-weight: 600;
+  line-height: 0.82;
+}
+
+/* Small caps eyebrow label used above section headings. */
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  font-weight: 500;
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+.eyebrow::before {
+  content: '';
+  width: 18px;
+  height: 1px;
+  background-color: var(--accent);
+}
+
+/* Blinking terminal caret, used by the typewriter intro. */
+.caret::after {
+  content: '▌';
+  margin-left: 0.08em;
+  color: var(--accent);
+  animation: caret-blink 1.06s steps(2, start) infinite;
+}
+
+@keyframes caret-blink {
+  0%,
+  50% {
+    opacity: 1;
+  }
+
+  50.01%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .caret::after {
+    animation: none;
+  }
+}

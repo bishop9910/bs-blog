@@ -37,3 +37,15 @@ __screenshots__/
 
 # Vite
 *.timestamp-*-*.mjs
+
+# Go backend: local build/scratch areas and runtime data.
+# These live inside the workspace so the Go toolchain never needs to write to
+# the user profile (which is what makes offline builds work here at all).
+.gocache/
+.gotmp/
+.smoke/
+.smokeweb/
+.smokeprod/
+.smokedev/
+backend/data/
+*.exe

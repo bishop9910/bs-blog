@@ -1,0 +1,114 @@
+/*
+ * Syntax highlighting for highlight.js token classes, driven by the site's own
+ * palette instead of a shipped theme file — that is what lets the code colours
+ * belong to the same design as the rest of the blog.
+ *
+ * Dark is the default palette; the light block below re-tints the same tokens
+ * for contrast on a near-white background.
+ */
+:root {
+  --syn-plain: var(--p-zinc-200);
+  --syn-comment: var(--p-zinc-500);
+  --syn-keyword: var(--p-pink-400);
+  --syn-string: var(--p-lime-300);
+  --syn-number: var(--p-amber-500);
+  --syn-title: var(--p-blue-400);
+  --syn-builtin: var(--p-pink-300);
+  --syn-type: var(--p-lime-200);
+  --syn-attr: var(--p-amber-500);
+  --syn-meta: var(--p-zinc-400);
+  --syn-added: var(--p-green-500);
+  --syn-deleted: var(--p-red-500);
+}
+
+:root[data-theme='light'] {
+  --syn-plain: var(--p-zinc-800);
+  --syn-comment: var(--p-zinc-500);
+  --syn-keyword: #be185d;
+  --syn-string: #4d7c0f;
+  --syn-number: #b45309;
+  --syn-title: #1d4ed8;
+  --syn-builtin: #a21caf;
+  --syn-type: #0f766e;
+  --syn-attr: #b45309;
+  --syn-meta: var(--p-zinc-600);
+  --syn-added: #15803d;
+  --syn-deleted: #b91c1c;
+}
+
+pre code.hljs,
+pre code.hljs * {
+  background: none;
+}
+
+.hljs {
+  color: var(--syn-plain);
+}
+
+.hljs-comment,
+.hljs-quote {
+  color: var(--syn-comment);
+  font-style: italic;
+}
+
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-doctag,
+.hljs-formula {
+  color: var(--syn-keyword);
+}
+
+.hljs-string,
+.hljs-regexp,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-addition {
+  color: var(--syn-string);
+}
+
+.hljs-number,
+.hljs-literal,
+.hljs-variable,
+.hljs-template-variable,
+.hljs-attr,
+.hljs-attribute {
+  color: var(--syn-number);
+}
+
+.hljs-title,
+.hljs-title.function_,
+.hljs-title.class_,
+.hljs-section,
+.hljs-selector-id,
+.hljs-selector-class {
+  color: var(--syn-title);
+}
+
+.hljs-built_in,
+.hljs-name,
+.hljs-tag {
+  color: var(--syn-builtin);
+}
+
+.hljs-type,
+.hljs-class .hljs-title,
+.hljs-params {
+  color: var(--syn-type);
+}
+
+.hljs-meta,
+.hljs-meta .hljs-keyword {
+  color: var(--syn-meta);
+}
+
+.hljs-deletion {
+  color: var(--syn-deleted);
+}
+
+.hljs-emphasis {
+  font-style: italic;
+}
+
+.hljs-strong {
+  font-weight: 600;
+}

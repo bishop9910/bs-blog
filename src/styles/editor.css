@@ -1,0 +1,305 @@
+/*
+ * Editor chrome. Imported from RichTextEditor.vue rather than main.ts so it
+ * travels with the lazily-loaded editor chunk and never costs public pages.
+ * Deliberately unscoped: ProseMirror renders its own DOM tree, so scoped
+ * attribute selectors would not reach it.
+ */
+
+.rte {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--bg-card);
+  overflow: hidden;
+  transition: border-color var(--dur-fast) var(--ease-out);
+}
+
+.rte.is-focused {
+  border-color: var(--border-accent);
+  box-shadow: 0 0 0 3px var(--accent-subtle);
+}
+
+/* Toolbar ---------------------------------------------------------------- */
+
+.rtb {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3xs, 2px);
+  padding: var(--space-xs) var(--space-sm);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-subtle);
+  /* Not sticky. The toolbar is a flex sibling of the scrolling .rte__body, so
+     it already stays put while the document scrolls -- and `position: sticky`
+     with a `top` offset resolved against `.rte` (which is a scroll container
+     because of its `overflow: hidden`), which shoved the bar 64px down out of
+     flow and painted it over the first two lines of text. Keep it in flow. */
+  position: relative;
+  z-index: 2;
+}
+
+.rtb__group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.rtb__sep {
+  width: 1px;
+  height: 20px;
+  margin: 0 var(--space-xs);
+  background: var(--border-subtle);
+}
+
+.rtb__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
+}
+
+.rtb__btn:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.rtb__btn:active:not(:disabled) {
+  transform: scale(0.94);
+}
+
+.rtb__btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.rtb__btn.is-active {
+  background: var(--accent-subtle);
+  color: var(--accent);
+}
+
+.rtb__btn--danger:hover:not(:disabled) {
+  background: var(--danger);
+  color: #fff;
+}
+
+.rtb__select {
+  height: 32px;
+  padding: 0 var(--space-sm);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  cursor: pointer;
+}
+
+.rtb__select:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+
+.rtb__select--lang {
+  font-family: var(--font-mono);
+}
+
+/* Body ------------------------------------------------------------------- */
+
+.rte__body {
+  position: relative;
+  flex: 1;
+  min-height: var(--rte-min-height, 460px);
+  /* Long documents scroll inside the body instead of growing the card, which
+     is what keeps the toolbar permanently in view now that it is not sticky. */
+  max-height: var(--rte-max-height, calc(100vh - 18rem));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.rte .ProseMirror {
+  padding: var(--space-xl) var(--space-2xl);
+  min-height: var(--rte-min-height, 460px);
+  outline: none;
+}
+
+/* The editor renders into the same .prose rules readers get, so what is typed
+   is what gets published. Only the empty-state hint is editor-specific. */
+.rte .ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.rte .ProseMirror-selectednode {
+  outline: 2px solid var(--accent);
+  border-radius: var(--radius-sm);
+}
+
+.rte .ProseMirror-gapcursor::after {
+  border-top-color: var(--accent);
+}
+
+/* Tables ----------------------------------------------------------------- */
+
+.rte .ProseMirror table {
+  table-layout: fixed;
+  width: 100%;
+  margin: var(--space-lg) 0;
+  border-collapse: collapse;
+  overflow: hidden;
+}
+
+.rte .ProseMirror th,
+.rte .ProseMirror td {
+  position: relative;
+  min-width: 4rem;
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--border-subtle);
+  vertical-align: top;
+}
+
+.rte .ProseMirror th {
+  background: var(--bg-subtle);
+  font-weight: 600;
+  text-align: left;
+}
+
+.rte .ProseMirror .selectedCell::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--accent-subtle);
+  pointer-events: none;
+}
+
+.rte .ProseMirror .column-resize-handle {
+  position: absolute;
+  top: 0;
+  right: -2px;
+  bottom: 0;
+  width: 4px;
+  background: var(--accent);
+  pointer-events: none;
+}
+
+.rte .ProseMirror.resize-cursor {
+  cursor: col-resize;
+}
+
+/* Task lists ------------------------------------------------------------- */
+
+.rte .ProseMirror ul[data-type='taskList'] {
+  padding-left: 0;
+  list-style: none;
+}
+
+.rte .ProseMirror ul[data-type='taskList'] li {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+}
+
+.rte .ProseMirror ul[data-type='taskList'] li > label {
+  margin-top: 0.35em;
+  user-select: none;
+}
+
+.rte .ProseMirror ul[data-type='taskList'] input[type='checkbox'] {
+  accent-color: var(--accent);
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+/* Status bar ------------------------------------------------------------- */
+
+.rte__status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-xs) var(--space-md);
+  border-top: 1px solid var(--border-subtle);
+  background: var(--bg-subtle);
+  color: var(--text-muted);
+  font-size: var(--text-2xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.rte__hint {
+  margin-left: auto;
+}
+
+.rte__uploading {
+  margin-left: auto;
+  color: var(--accent);
+}
+
+.rte__file {
+  display: none;
+}
+
+/* Bubble menu ------------------------------------------------------------ */
+
+.bubble-menu {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-lg);
+  backdrop-filter: blur(12px);
+}
+
+.bubble-menu__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+
+.bubble-menu__btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.bubble-menu__btn.is-active {
+  background: var(--accent-subtle);
+  color: var(--accent);
+}
+
+.bubble-menu__sep {
+  width: 1px;
+  height: 18px;
+  margin: 0 2px;
+  background: var(--border-subtle);
+}
+
+@media (max-width: 640px) {
+  .rte .ProseMirror {
+    padding: var(--space-lg) var(--space-md);
+  }
+}
