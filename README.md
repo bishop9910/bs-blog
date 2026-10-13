@@ -42,13 +42,36 @@ pnpm dev
 
 ## 生产构建
 
-```sh
-pnpm build                 # 前端产物到 dist/
-cd backend
-go build -o bs-blog.exe ./cmd/server
+```powershell
+powershell -File backend/scripts/build-release.ps1
 ```
 
-`backend/configs/config.yaml` 里的 `server.staticDir` 默认是 `../dist`，所以只要从 `backend/` 目录启动，同一个进程就会同时提供 API 和前端页面，深链接（如 `/post/hello`）会自动回退到 `index.html`。把 `staticDir` 设为空字符串则只跑 API。
+一条命令走完：`pnpm build` 产出前端 → 复制进 `backend/internal/web/dist/` → 用 `go:embed` 把前端**编进二进制** → 在 `backend/release/` 下组装交付物：
+
+```
+release/
+├── bs-blog.exe        前端已内嵌，单个文件即可运行
+├── configs/config.yaml
+└── data/uploads/      图片上传目录
+```
+
+整个目录拷到别的机器就能跑——**不需要 Node，也不需要 dist 目录**，在 `release/` 下执行 `.\bs-blog.exe`，浏览器开 <http://127.0.0.1:8080>。
+
+`-Version 1.2.3` 指定版本号（默认取 `git describe --tags --always --dirty`，会打进启动日志）；`-SkipFrontend` 跳过 `pnpm build`，复用已有的 `dist/`。
+
+**`release/data/` 不会被脚本覆盖。** 数据库是唯一不可再生的东西，脚本只建空目录；如果 `backend/data/blog.db` 存在而 `release/data/` 里没有，它只打一行 NOTE 提醒你手动拷贝，绝不代劳。
+
+前端是**直接从二进制里读出来**服务的（`internal/web/embed.go`），不做「启动时解压到临时目录」——少一次写盘、少一个清理步骤，也就少一类「临时目录不可写」的启动失败。代价是内嵌文件没有修改时间，所以缓存头是显式写死的：`index.html` 用 `no-cache`（它决定引用哪些带哈希的资源，缓存它等于把浏览器钉在旧构建上），`assets/` 用一年 `immutable`。
+
+开发时仍然前后端分开跑（见上面的快速开始）。想临时覆盖内嵌前端，把 `server.staticDir` 指向一个目录即可；指向的路径不存在或没有 `index.html` 时会**自动回退到内嵌副本**，所以配错不会把站点打挂。
+
+要单独手工构建也可以：
+
+```sh
+pnpm build                        # 前端产物到 dist/
+cd backend
+go build -o bs-blog.exe ./cmd/server   # 从 backend/ 启动时会去读 ../dist
+```
 
 ---
 
@@ -64,6 +87,8 @@ powershell -File backend/scripts/dev.ps1     # 开发回路：vite dev + /api �
 ```
 
 它们会在 `.smoke/` / `.smokeweb/` / `.smokeprod/` / `.smokedev/` 下起一次性服务和一次性数据库，跑完自动清理，**不会碰到真实数据**。
+
+打包用的 `backend/scripts/build-release.ps1` 不在这四个里面：它只读前端产物、只写 `backend/release/`，既不碰数据库也不起服务，所以不需要在测试前跑。
 
 前三个脚本的区别：`smoke.ps1` 只管接口；`web.ps1` 用一个手写的假 `dist/` 验证托管逻辑；`prod.ps1` 用 `pnpm build` 真正产出的 `dist/`，会解析 `index.html` 里引用的每一个资源并逐个请求，能抓到「页面指向了一个 Vite 根本没生成的文件」这类假 `dist/` 永远看不见的问题。**先跑 `pnpm build` 再跑 `prod.ps1`。**
 
@@ -85,6 +110,16 @@ cd backend && go test ./internal/pkg/textutil/     # 后端 internal/pkg/textuti
 ```
 
 **改任意一边都必须改 `scripts/text-cases.json`**，否则另一边立刻红。`go test ./...` 里唯一有测试的包就是它。
+
+### 排查库里的真实数据
+
+`backend/cmd/dbdump` 是个只读小工具，用来在没装 SQLite 客户端时看一眼库里到底存了什么——「文章到底没存进去，还是存进去了只是没显示」这类问题一眼可辨：
+
+```sh
+cd backend && go run ./cmd/dbdump ../data/blog.db
+```
+
+它以 `mode=ro&_pragma=query_only(true)` 打开文件，**不可能写入**。库跑在 WAL 模式下，所以要看最新的已提交数据，需把 `blog.db`、`blog.db-wal`、`blog.db-shm` 三个文件一起复制出来再读——只复制 `blog.db` 会看到一份陈旧快照。
 
 ---
 
@@ -132,7 +167,8 @@ cd backend && go test ./internal/pkg/textutil/     # 后端 internal/pkg/textuti
 ├── backend/
 │   ├── cmd/server/          入口
 │   ├── configs/config.yaml  配置（全部带注释）
-│   ├── scripts/             端到端测试脚本
+│   ├── scripts/             端到端测试脚本 + 打包脚本
+│   ├── release/             打包产物（已 gitignore）
 │   └── internal/
 │       ├── biz/             业务逻辑与线上 DTO
 │       ├── conf/            配置加载与默认值
@@ -140,8 +176,9 @@ cd backend && go test ./internal/pkg/textutil/     # 后端 internal/pkg/textuti
 │       ├── model/           表结构
 │       ├── pkg/             文本、密码学、HTML 净化工具
 │       ├── server/          HTTP 服务器、静态文件、错误页
-│       └── service/         路由与请求处理
-└── dist/                    前端构建产物（Go 会托管它）
+│       ├── service/         路由与请求处理
+│       └── web/             前端产物入库位置（go:embed；只有 .gitkeep 进版本控制）
+└── dist/                    前端构建产物（Vite 产出，打包时被复制进 internal/web/dist）
 ```
 
 ---
@@ -153,7 +190,8 @@ cd backend && go test ./internal/pkg/textutil/     # 后端 internal/pkg/textuti
 - 文章正文不含 `data:` URI，图片必须走上传流程
 - 单个请求体、上传体积都有上限；上传目录关闭目录列表
 - 静态文件回退使用 `path.Clean("/" + path)`，`..` 无法逃出根目录
-- JWT 密钥首次启动时随机生成并落盘（`backend/data/jwt.secret`），重启不会让所有人掉线；也可以用环境无关的 `auth.secret`（hex 编码，至少 32 字节）显式指定
+- JWT 密钥首次启动时随机生成并落盘（`backend/data/jwt.secret`），重启不会让所有人掉线。**`auth.secret` 必须留空**：`configs/config.yaml` 是提交进 git 的，密钥写在那里等于公开密钥——任何拿到仓库副本的人都能自己签一个管理员 token，直接绕过密码锁（`data/` 已被 `.gitignore` 排除，生成的密钥不会进仓库）
+- 首次启动的认领接口 `POST /auth/setup` 在**还没有任何管理员**时对谁开放，谁先访问谁就是站长。`conf.Auth.SetupToken` 是为「认领时需要共享口令」预留的字段，**目前没有任何代码读取它**，所以配置里不放这个键——放一个不生效的值，看起来像一层并不存在的防护
 
 ---
 
@@ -164,7 +202,7 @@ cd backend && go test ./internal/pkg/textutil/     # 后端 internal/pkg/textuti
 | 键 | 默认 | 说明 |
 | --- | --- | --- |
 | `server.addr` | `0.0.0.0:8080` | 绑所有网卡，局域网内其他机器可用 `http://<本机IP>:8080` 访问；改成 `127.0.0.1:8080` 则只允许本机 |
-| `server.staticDir` | `../dist` | 前端产物目录；留空则只提供 API |
+| `server.staticDir` | 空 | 覆盖二进制内嵌的前端。留空就用内嵌副本；指向的目录不存在或没有 `index.html` 也回退到内嵌副本。想用外置目录（例如开发时指向 `../dist`）才需要填 |
 | `data.uploadUrl` | `/uploads` | 已存文章的图片链接依赖这个前缀，改了会断图 |
 | `data.maxUploadBytes` | `10485760` | 单张图片上限 |
 | `auth.tokenTtl` | `168h` | 登录有效期 |

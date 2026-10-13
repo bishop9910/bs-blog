@@ -74,8 +74,9 @@ function WaitHttp($url) {
 Remove-Item -Recurse -Force $run -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force -Path (Join-Path $run 'data\uploads') | Out-Null
 
-# staticDir is empty on purpose: this check is about the dev server, and the
-# backend must stay API-only so the proxy has something unambiguous to reach.
+# staticDir is empty on purpose: this check is about the dev server, and Vite is
+# the only thing the browser talks to. Vite owns / and proxies just /api, so
+# whatever pages this binary would serve never enter the picture.
 $config = @(
     'server:'
     "  addr: `"127.0.0.1:$goPort`""

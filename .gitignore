@@ -49,3 +49,14 @@ __screenshots__/
 .smokedev/
 backend/data/
 *.exe
+
+# The frontend staged for embedding is a build artifact; only .gitkeep is
+# tracked. The directory has to be re-included before its contents can be
+# excluded again, because git never descends into an excluded directory -- and
+# the general `dist` rule above already excludes this one.
+!backend/internal/web/dist/
+backend/internal/web/dist/*
+!backend/internal/web/dist/.gitkeep
+
+# Assembled single-executable release folder.
+backend/release/

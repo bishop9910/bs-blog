@@ -101,10 +101,22 @@ watch(
   },
 )
 
+/**
+ * Set while the form is being filled programmatically (a load, or the server's
+ * echo after a save). The dirty flag must not be raised by our own writes.
+ */
+let applyingForm = false
+
 // Any edit at all means there is something to lose on navigation.
-watch(form, () => {
-  dirty.value = true
-})
+// Sync flush: the flag above is only meaningful at mutation time, but a queued
+// watcher would run after the caller has already reset it.
+watch(
+  form,
+  () => {
+    if (!applyingForm) dirty.value = true
+  },
+  { flush: 'sync' },
+)
 
 function payload(): PostInput {
   return {
@@ -135,19 +147,23 @@ async function save(options: { silent?: boolean } = {}): Promise<boolean> {
   try {
     if (isNew.value) {
       const created = await createPost(payload())
+      applyingForm = true
       postId.value = created.id
       status.value = created.status
       form.slug = created.slug
       slugState.value = 'ok'
+      applyingForm = false
       dirty.value = false
       // Replace so "back" leaves the editor instead of returning to a blank form.
       await router.replace({ name: 'admin-post-edit', params: { id: String(created.id) } })
       if (!options.silent) message.success('草稿已保存')
     } else {
       const updated = await updatePost(postId.value, payload())
+      applyingForm = true
       status.value = updated.status
       form.slug = updated.slug
       slugState.value = 'ok'
+      applyingForm = false
       dirty.value = false
       if (!options.silent) message.success('已保存')
     }
@@ -218,6 +234,7 @@ async function load() {
       return
     }
     const post = await getAdminPost(id)
+    applyingForm = true
     postId.value = post.id
     status.value = post.status
     form.title = post.title
@@ -232,8 +249,8 @@ async function load() {
     form.metaDescription = post.metaDescription ?? ''
     slugTouched.value = true
     slugState.value = 'ok'
-    // Loading is not editing: clear the flag on the next tick.
-    await Promise.resolve()
+    applyingForm = false
+    // Loading is not editing.
     dirty.value = false
   } catch (caught) {
     message.error(caught instanceof Error ? caught.message : '加载失败')

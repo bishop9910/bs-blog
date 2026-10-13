@@ -300,8 +300,13 @@ if ($evil.Headers['Access-Control-Allow-Origin']) { Fail 'disallowed origin got 
 Write-Output "    disallowed origin -> $($evil.Status) (no allow-origin)"
 
 Write-Output '=== unknown route ==='
-$nf = RawHttp 'GET' "$base/nope" $null $null $null $null $null
+# /api/v1 is reserved, so an unknown path under it must stay a JSON error rather
+# than fall through to the SPA shell. An unknown *page* path legitimately serves
+# index.html -- that is how client-side deep links resolve -- and web.ps1 is the
+# script that covers that side.
+$nf = RawHttp 'GET' "$base/api/v1/nope" $null $null $null $null $null
 if ($nf.Status -ne 404) { Fail "unknown API route should be 404, got $($nf.Status)" }
+if ($nf.Text -notmatch '"code":404') { Fail "unknown API route should return the JSON error body, got '$($nf.Text)'" }
 $badMethod = RawHttp 'DELETE' "$base/posts" $null $null $null $null $null
 Write-Output "    unknown route=$($nf.Status) bad method=$($badMethod.Status)"
 

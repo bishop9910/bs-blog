@@ -1,0 +1,127 @@
+// Command dbdump prints the contents of a bs-blog SQLite database.
+//
+// It is a maintenance/diagnostic helper: it opens the given file read-only and
+// dumps users, posts and tags so a bug report can be checked against real data.
+//
+//	go run ./cmd/dbdump ../.gotmp/dbdump/copy/blog.db
+package main
+
+import (
+	"database/sql"
+	"fmt"
+	"os"
+	"strings"
+
+	_ "github.com/glebarez/sqlite"
+)
+
+func main() {
+	if len(os.Args) < 2 {
+		fmt.Fprintln(os.Stderr, "usage: dbdump <path-to-blog.db>")
+		os.Exit(2)
+	}
+	path := os.Args[1]
+
+	// mode=ro + query_only guarantee this can never mutate the database.
+	dsn := "file:" + strings.ReplaceAll(path, "\\", "/") + "?mode=ro&_pragma=query_only(true)"
+	db, err := sql.Open("sqlite", dsn)
+	if err != nil {
+		fail("open", err)
+	}
+	defer db.Close()
+
+	if err := db.Ping(); err != nil {
+		fail("ping", err)
+	}
+
+	dumpUsers(db)
+	dumpPosts(db)
+	dumpTags(db)
+}
+
+func dumpUsers(db *sql.DB) {
+	rows, err := db.Query(`SELECT id, username, nickname, created_at, last_login_at FROM users ORDER BY id`)
+	if err != nil {
+		fmt.Printf("users: query failed: %v\n", err)
+		return
+	}
+	defer rows.Close()
+
+	fmt.Println("=== users ===")
+	n := 0
+	for rows.Next() {
+		var id int64
+		var username, nickname, createdAt, lastLogin sql.NullString
+		if err := rows.Scan(&id, &username, &nickname, &createdAt, &lastLogin); err != nil {
+			fmt.Printf("users: scan failed: %v\n", err)
+			return
+		}
+		n++
+		fmt.Printf("  #%d username=%q nickname=%q created=%s lastLogin=%s\n",
+			id, username.String, nickname.String, createdAt.String, lastLogin.String)
+	}
+	if n == 0 {
+		fmt.Println("  (no rows)")
+	}
+}
+
+func dumpPosts(db *sql.DB) {
+	rows, err := db.Query(`SELECT id, slug, title, status, visibility, published_at, created_at, updated_at, length(content_html)
+		FROM posts ORDER BY id`)
+	if err != nil {
+		fmt.Printf("posts: query failed: %v\n", err)
+		return
+	}
+	defer rows.Close()
+
+	fmt.Println("=== posts ===")
+	n := 0
+	for rows.Next() {
+		var id, htmlLen int64
+		var slug, title, status, visibility, publishedAt, createdAt, updatedAt sql.NullString
+		if err := rows.Scan(&id, &slug, &title, &status, &visibility, &publishedAt,
+			&createdAt, &updatedAt, &htmlLen); err != nil {
+			fmt.Printf("posts: scan failed: %v\n", err)
+			return
+		}
+		n++
+		fmt.Printf("  #%d status=%q visibility=%q slug=%q\n", id, status.String, visibility.String, slug.String)
+		fmt.Printf("      title=%q\n", title.String)
+		fmt.Printf("      publishedAt=%s createdAt=%s updatedAt=%s htmlLen=%d\n",
+			publishedAt.String, createdAt.String, updatedAt.String, htmlLen)
+	}
+	if n == 0 {
+		fmt.Println("  (no rows)")
+	}
+	fmt.Printf("  total=%d\n", n)
+}
+
+func dumpTags(db *sql.DB) {
+	rows, err := db.Query(`SELECT id, name, slug FROM tags ORDER BY id`)
+	if err != nil {
+		fmt.Printf("tags: query failed: %v\n", err)
+		return
+	}
+	defer rows.Close()
+
+	fmt.Println("=== tags ===")
+	n := 0
+	for rows.Next() {
+		var id int64
+		var name, slug sql.NullString
+		if err := rows.Scan(&id, &name, &slug); err != nil {
+			fmt.Printf("tags: scan failed: %v\n", err)
+			return
+		}
+		n++
+		fmt.Printf("  #%d name=%q slug=%q\n", id, name.String, slug.String)
+	}
+	if n == 0 {
+		fmt.Println("  (no rows)")
+	}
+}
+
+func fail(what string, err error) {
+	fmt.Fprintf(os.Stderr, "dbdump: %s: %v\n", what, err)
+	os.Exit(1)
+}

@@ -3,7 +3,7 @@ import { onMounted, reactive, ref } from 'vue'
 import { NButton, NForm, NFormItem, NInput, useMessage } from 'naive-ui'
 import { PhLockKey, PhWarningCircle } from '@phosphor-icons/vue'
 import { useRoute, useRouter } from 'vue-router'
-import { setup as claimSite, setupState } from '@/api/auth'
+import { setupState } from '@/api/auth'
 import { useAuth } from '@/stores/auth'
 import ShaderBackdrop from '@/components/visual/ShaderBackdrop.vue'
 import ThemeToggle from '@/components/ThemeToggle.vue'
@@ -11,7 +11,7 @@ import ThemeToggle from '@/components/ThemeToggle.vue'
 const route = useRoute()
 const router = useRouter()
 const message = useMessage()
-const { signIn } = useAuth()
+const { signIn, claim } = useAuth()
 
 /** 'loading' while we ask the server whether an owner exists yet. */
 const mode = ref<'loading' | 'login' | 'setup'>('loading')
@@ -50,7 +50,9 @@ async function submit() {
   submitting.value = true
   try {
     if (isSetup()) {
-      await claimSite(form.username.trim(), form.password)
+      // Must go through the store: the raw API call returns a token but never
+      // stores it, so the auth guard would bounce us straight back here.
+      await claim(form.username.trim(), form.password)
       message.success('创建完成，已自动登录')
     } else {
       await signIn(form.username.trim(), form.password)

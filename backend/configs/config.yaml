@@ -19,10 +19,15 @@ server:
   idleTimeout: 120s
   # Hard cap on every request body, uploads included. 12 MiB.
   maxBodyBytes: 12582912
-  # Directory of the built frontend (pnpm build writes to ../dist). Unknown
-  # page paths fall back to index.html so deep links reach the client router.
-  # Set to "" to run as an API-only server.
-  staticDir: "../dist"
+  # Where the pages come from. Empty means the frontend embedded in the binary
+  # (built by backend/scripts/build-release.ps1) -- the normal setting for a
+  # released executable, which needs no dist directory on disk. Set a path to
+  # override it, which is handy for iterating on the frontend against a built
+  # binary; a path that is missing or has no index.html falls back to the
+  # embedded copy. Unknown page paths fall back to index.html so deep links
+  # reach the client router. A binary built without a frontend serves the API
+  # only.
+  staticDir: ""
 
 data:
   # SQLite file. Its parent directory is created when missing.
@@ -41,15 +46,17 @@ auth:
   # Optional hex-encoded signing key, at least 32 bytes. Leave empty to use
   # secretFile, which is generated once on first boot and then reused — a fresh
   # key would invalidate every existing login.
-  secret: "0f0da18747251c7942f5180e67de55ce746775e6611578803d1d6088030b3884"
+  #
+  # Keep this empty. This file is tracked by git, so a key written here is a
+  # published key: anyone holding a copy of the repository could sign their own
+  # admin token and walk straight through the password lock. The generated
+  # secretFile lives under data/, which .gitignore keeps out of the repository.
+  secret: ""
   secretFile: "data/jwt.secret"
   # How long a login lasts. 7 days.
   tokenTtl: 168h
   # bcrypt work factor. 12 is the sensible default on modern hardware.
   bcryptCost: 12
-  # Optional shared secret for the first-run claim endpoint. Empty means the
-  # first visitor to POST /auth/setup becomes the owner.
-  setupToken: "c3ed1930ec7d53e82cd70092bc7b814de13f0db75af8e68c6a66262a286406f7"
 
 cors:
   # The Vite dev server runs on another origin, so this is on by default.

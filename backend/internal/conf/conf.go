@@ -59,9 +59,14 @@ type ServerConfig struct {
 	IdleTimeout Duration `yaml:"idleTimeout"`
 	// MaxBodyBytes caps request bodies (uploads included).
 	MaxBodyBytes int64 `yaml:"maxBodyBytes"`
-	// StaticDir, when it exists on disk, is served as the built frontend. Deep
-	// links fall through to index.html so the SPA router can resolve them.
-	// Leave it empty to run as an API-only server.
+	// StaticDir overrides the frontend embedded in the binary. Empty means
+	// "serve the embedded copy", which is what makes a release a single
+	// executable. A path that is missing or holds no index.html also falls back
+	// to the embedded copy, so a stale setting cannot take the site down.
+	// Point it at a real directory (e.g. "../dist") to iterate on the frontend
+	// without rebuilding Go. Deep links fall through to index.html so the SPA
+	// router can resolve them, and a binary carrying no frontend serves the API
+	// only.
 	StaticDir string `yaml:"staticDir"`
 }
 
@@ -88,8 +93,11 @@ type AuthConfig struct {
 	TokenTTL Duration `yaml:"tokenTtl"`
 	// BcryptCost is the password hashing work factor (bcrypt allows 4..31).
 	BcryptCost int `yaml:"bcryptCost"`
-	// SetupToken, when set, is required by POST /auth/setup so that a fresh
-	// deployment cannot be claimed by a stranger. Optional.
+	// SetupToken is reserved for requiring a shared secret on POST /auth/setup,
+	// so that a fresh deployment cannot be claimed by whichever stranger reaches
+	// the port first. It is NOT enforced yet — no handler reads it — so it is
+	// deliberately absent from configs/config.yaml: a value there would sit in a
+	// git-tracked file looking like a protection that does not exist.
 	SetupToken string `yaml:"setupToken"`
 }
 
