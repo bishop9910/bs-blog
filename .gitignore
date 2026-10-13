@@ -61,11 +61,12 @@ backend/internal/web/dist/*
 # Assembled single-executable release folder.
 backend/release/
 
-# Windows build resources. winres/versioninfo.json is the hand-written source;
-# the artwork is drawn by tools/icongen and the .syso objects are compiled from
-# it by goversioninfo, both during a release build. Go only links .syso from the
-# package directory, which is why they land in cmd/server/ -- and their
-# resource_windows_* names are what keep them out of a Linux link.
+# Windows build resources. winres/versioninfo.json and winres/icon.ico are
+# hand-managed sources, not generated output: the icon is tracked on purpose so
+# that dropping your own artwork there sticks. tools/icongen only fills in a
+# missing one, and goversioninfo compiles the pair into the .syso objects Go
+# links into the executable -- which is why they land in cmd/server/, and why
+# their resource_windows_* names matter: that token keeps a leftover Windows
+# resource object out of a Linux link.
 backend/winres/icon.png
-backend/winres/icon.ico
 backend/cmd/server/*.syso

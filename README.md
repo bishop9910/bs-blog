@@ -76,9 +76,19 @@ release/
 
 Windows 产物自带图标和版本元数据（资源管理器里「属性 → 详细信息」能看到），这些资源由 `backend/winres/` 管：
 
-- `tools/icongen` 用 Go 代码画出图标——图形是一条圆角底加一个字母 `b`，画在 1024² 的设计空间里再降采样到各个尺寸，所以改几个常量重跑一次就能改图，不需要打开画图软件，仓库里也不用塞一个二进制贴图
+- `winres/icon.ico` 就是 exe 的图标，而且**是个普通的受版本控制的文件**：想换图标就把这个文件替换掉，提交后一直保留，打包脚本不会动它
 - `winres/versioninfo.json` 是版本元数据（产品名、描述、版权、占位版本号）
 - [goversioninfo](https://github.com/josephspurrier/goversioninfo) 把这两样编成 `.syso`，Go 再把它链进 exe
+
+`tools/icongen` 只是 `icon.ico` 的**兜底**：万一文件不在（比如新克隆时漏带了），它就用 Go 代码现画一个——圆角底加一个字母 `b`，画在 1024² 的设计空间里再降采样到 16/24/32/48/64/128/256 七个尺寸。它**默认绝不覆盖已存在的文件**，想重画必须显式加 `-force`；打包脚本看到 `icon.ico` 已经在了就连碰都不碰它：
+
+```sh
+cd backend
+go run ./tools/icongen          # 只在 icon.ico 缺失时补一个，有就原样留着
+go run ./tools/icongen -force   # 重画并覆盖
+```
+
+仓库里预置的 `icon.ico` 是从前端 `public/favicon.ico` 拷过来的，这样 exe 图标和网页标签图标是同一个；换图标时记得两处都换。想用别处的图标，只要是个真 `.ico`（goversioninfo 不吃 `.png`，会报 `bad magic number`）直接覆盖上去即可。
 
 goversioninfo 是**外部工具**，装一次即可：
 
@@ -199,8 +209,8 @@ cd backend && go run ./cmd/dbdump ../data/blog.db
 │   ├── cmd/server/          入口
 │   ├── configs/config.yaml  配置（全部带注释）
 │   ├── scripts/             端到端测试脚本 + 打包脚本
-│   ├── tools/icongen/       用 Go 代码画出 Windows 图标（纯标准库）
-│   ├── winres/              Windows 资源：versioninfo.json 与它产出的图标
+│   ├── tools/icongen/       图标兜底生成器：icon.ico 缺失时才用 Go 代码画一个（纯标准库）
+│   ├── winres/              Windows 资源：versioninfo.json 与 icon.ico，都是手改的源文件
 │   ├── release/             打包产物（已 gitignore）
 │   └── internal/
 │       ├── biz/             业务逻辑与线上 DTO
