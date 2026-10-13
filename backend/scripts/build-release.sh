@@ -118,11 +118,12 @@ if [ ! -f "$EMBED_DIR/index.html" ]; then
 fi
 
 # --- 3. windows resources ----------------------------------------------------
-# The icon is drawn from code (tools/icongen) and the version resource is
-# compiled by goversioninfo into a .syso -- a COFF object Go links straight into
-# the executable. Both are regenerated on every build instead of being checked
-# in, which is the only way the version Explorer shows in the Properties dialog
-# can track the one baked in below by -ldflags.
+# goversioninfo compiles winres/versioninfo.json and winres/icon.ico into a .syso
+# -- a COFF object Go links straight into the executable. The .syso is rebuilt on
+# every build because the version Explorer shows in the Properties dialog has to
+# track the one baked in below by -ldflags; the files it is built from are not.
+# icongen runs only to fill in a missing icon.ico and leaves an existing one
+# alone, so replacing that file with your own artwork is safe.
 echo "=== windows resources ==="
 if [ "$TARGET_GOOS" != "windows" ]; then
   echo "    skipped: the target is $TARGET_GOOS/$TARGET_GOARCH and .syso resources are Windows-only"
@@ -131,8 +132,14 @@ elif ! command -v goversioninfo >/dev/null 2>&1; then
   echo "NOTE: version resource. Install it and rebuild:"
   echo "NOTE:   go install github.com/josephspurrier/goversioninfo/cmd/goversioninfo@latest"
 else
-  if ! ( cd "$BE_DIR" && go run ./tools/icongen ); then
-    echo "FAIL: icongen could not draw the icon" >&2
+  # icongen is a fallback for a missing icon and nothing more. icon.ico is a
+  # tracked asset, so an existing one is used as-is and the tool is not even
+  # invoked -- which is what keeps a build from ever redrawing the artwork you
+  # put there.
+  if [ -f "$BE_DIR/winres/icon.ico" ]; then
+    echo "    icon: reusing winres/icon.ico"
+  elif ! ( cd "$BE_DIR" && go run ./tools/icongen ); then
+    echo "FAIL: icongen could not draw the missing winres/icon.ico" >&2
     exit 1
   fi
 

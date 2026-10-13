@@ -1,13 +1,18 @@
-// Command icongen renders the artwork used by the Windows build resources:
-// winres/icon.ico (embedded into the executable's resources) and a larger
-// winres/icon.png for previews.
+// Command icongen draws a stand-in for the Windows build resource
+// backend/winres/icon.ico, the artwork goversioninfo embeds into the executable.
 //
-// The mark is drawn from scratch instead of being checked in as an opaque
-// binary blob so that its shape, colours and padding stay reviewable and
-// editable: change a constant here, re-run the command, and the icon follows.
-// Run it from the backend directory:
+// The mark is drawn from code instead of being checked in as an opaque binary
+// blob so that its shape, colours and padding stay reviewable and editable. Run
+// it from the backend directory:
 //
-//	go run ./tools/icongen
+//	go run ./tools/icongen          # fills in icon.ico only if it is missing
+//	go run ./tools/icongen -force   # redraws it
+//
+// It never overwrites an existing icon.ico without -force. The icon is a normal
+// tracked file that you are expected to replace with your own artwork, and a
+// build that redrew it would quietly throw that away -- so the release scripts
+// can call this unconditionally to fill a gap, and it stays out of the way the
+// rest of the time.
 //
 // The drawing happens in a 1024x1024 design space and is box-filtered down to
 // each requested size, which is what keeps the edges smooth at 256px and still
@@ -279,46 +284,63 @@ func writeFile(path string, fn func(io.Writer) error) error {
 }
 
 func main() {
-	pngOut := flag.String("o", filepath.Join("winres", "icon.png"), "path of the PNG to write")
 	icoOut := flag.String("ico", filepath.Join("winres", "icon.ico"), "path of the ICO to write")
-	pngSize := flag.Int("size", 256, "edge length of the PNG, in pixels")
+	pngOut := flag.String("o", "", "optional path for a PNG preview of the same drawing")
+	pngSize := flag.Int("size", 256, "edge length of the PNG preview, in pixels")
+	force := flag.Bool("force", false, "redraw a file that already exists")
 	flag.Parse()
 
 	if *pngSize < 16 || *pngSize > 1024 {
 		log.Fatalf("icongen: -size must be between 16 and 1024, got %d", *pngSize)
 	}
 
+	targets := []string{*icoOut}
+	if *pngOut != "" {
+		targets = append(targets, *pngOut)
+	}
 	// The paths are relative to wherever the caller stands, so say so plainly
 	// rather than failing with a bare "no such file or directory".
-	for _, path := range []string{*pngOut, *icoOut} {
+	for _, path := range targets {
 		dir := filepath.Dir(path)
 		if _, err := os.Stat(dir); err != nil {
 			log.Fatalf("icongen: output directory %q is not usable: %v\n"+
-				"run this from the backend directory, or pass -o/-ico an existing path", dir, err)
+				"run this from the backend directory, or pass -ico/-o an existing path", dir, err)
 		}
 	}
 
-	if err := writeFile(*pngOut, func(w io.Writer) error {
-		return png.Encode(w, render(*pngSize))
-	}); err != nil {
-		log.Fatalf("icongen: encode %s: %v", *pngOut, err)
-	}
-
-	imgs := make([]*image.NRGBA, 0, len(icoSizes))
-	for _, size := range icoSizes {
-		imgs = append(imgs, render(size))
-	}
-	if err := writeFile(*icoOut, func(w io.Writer) error {
-		return writeICO(w, imgs)
-	}); err != nil {
-		log.Fatalf("icongen: encode %s: %v", *icoOut, err)
-	}
-
-	for _, path := range []string{*pngOut, *icoOut} {
+	draw := func(path string, encode func(io.Writer) error) {
+		// An icon is artwork somebody chose, not a build artifact, so redrawing
+		// over an existing file would silently throw that choice away. The
+		// release scripts lean on this: they call icongen unconditionally to
+		// fill a gap, and it has to be a no-op when there is nothing to fill.
+		if !*force && exists(path) {
+			fmt.Printf("keep %s (already there; pass -force to redraw)\n", path)
+			return
+		}
+		if err := writeFile(path, encode); err != nil {
+			log.Fatalf("icongen: encode %s: %v", path, err)
+		}
 		info, err := os.Stat(path)
 		if err != nil {
 			log.Fatalf("icongen: stat %s: %v", path, err)
 		}
 		fmt.Printf("wrote %s (%d bytes)\n", path, info.Size())
 	}
+
+	draw(*icoOut, func(w io.Writer) error {
+		imgs := make([]*image.NRGBA, 0, len(icoSizes))
+		for _, size := range icoSizes {
+			imgs = append(imgs, render(size))
+		}
+		return writeICO(w, imgs)
+	})
+	if *pngOut != "" {
+		draw(*pngOut, func(w io.Writer) error { return png.Encode(w, render(*pngSize)) })
+	}
+}
+
+// exists reports whether path names a file that is already there.
+func exists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
 }

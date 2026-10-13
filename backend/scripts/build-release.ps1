@@ -15,11 +15,13 @@ after changing Go code alone.
 The release folder is assembled in place and data/ is never cleared, so an
 existing database there survives a rebuild.
 
-On Windows the executable also gets an icon and a version resource, both built
-from winres/: tools/icongen draws the artwork and goversioninfo compiles
-winres/versioninfo.json and that artwork into .syso objects, which Go links into
-the binary. goversioninfo is an external tool, so a machine without it still gets
-a working executable -- just without the icon and the version tab.
+On Windows the executable also gets an icon and a version resource. Both come out
+of winres/: versioninfo.json and icon.ico are ordinary tracked files you can edit
+or replace, and goversioninfo compiles them into .syso objects that Go links into
+the binary. Nothing in here redraws icon.ico -- tools/icongen only fills in a
+missing one, so artwork you drop there survives a build. goversioninfo is an
+external tool, so a machine without it still gets a working executable -- just
+without the icon and the version tab.
 
 .EXAMPLE
 .\scripts\build-release.ps1
@@ -87,11 +89,12 @@ $staged = Get-ChildItem -Path $embedDir -Recurse -File |
 Write-Output ("staged {0} files, {1:N1} KB" -f $staged.Count, (($staged.Sum / 1KB)))
 
 Write-Output '=== windows resources ==='
-# The icon is drawn from code (tools/icongen) and the version resource is
-# compiled by goversioninfo into a .syso -- a COFF object Go links straight into
-# the executable. Both are regenerated on every build instead of being checked
-# in, which is the only way the version Explorer shows in the Properties dialog
-# can track the one baked in below by -ldflags.
+# goversioninfo compiles winres/versioninfo.json and winres/icon.ico into a .syso
+# -- a COFF object Go links straight into the executable. The .syso is rebuilt on
+# every build because the version Explorer shows in the Properties dialog has to
+# track the one baked in below by -ldflags; the files it is built from are not.
+# icongen runs only to fill in a missing icon.ico and leaves an existing one
+# alone, so replacing that file with your own artwork is safe.
 $targetOS = if ($env:GOOS) { $env:GOOS } else { (& go env GOOS).Trim() }
 $targetArch = if ($env:GOARCH) { $env:GOARCH } else { (& go env GOARCH).Trim() }
 if ($targetOS -ne 'windows') {
@@ -103,8 +106,16 @@ if ($targetOS -ne 'windows') {
 } else {
     Push-Location $be
     try {
-        & go run ./tools/icongen
-        if ($LASTEXITCODE -ne 0) { Write-Output "FAIL: icongen exit=$LASTEXITCODE"; exit 1 }
+        # icongen is a fallback for a missing icon and nothing more. icon.ico is
+        # a tracked asset, so an existing one is used as-is and the tool is not
+        # even invoked -- which is what keeps a build from ever redrawing the
+        # artwork you put there.
+        if (Test-Path (Join-Path $be 'winres\icon.ico')) {
+            Write-Output 'icon: reusing winres/icon.ico'
+        } else {
+            & go run ./tools/icongen
+            if ($LASTEXITCODE -ne 0) { Write-Output "FAIL: icongen exit=$LASTEXITCODE"; exit 1 }
+        }
 
         # Windows stores a version as four 16-bit numbers, so the git-derived
         # string only maps onto them when it opens with dotted numbers. A bare
