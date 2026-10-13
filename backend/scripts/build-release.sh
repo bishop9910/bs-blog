@@ -117,7 +117,52 @@ if [ ! -f "$EMBED_DIR/index.html" ]; then
   exit 1
 fi
 
-# --- 3. build ----------------------------------------------------------------
+# --- 3. windows resources ----------------------------------------------------
+# The icon is drawn from code (tools/icongen) and the version resource is
+# compiled by goversioninfo into a .syso -- a COFF object Go links straight into
+# the executable. Both are regenerated on every build instead of being checked
+# in, which is the only way the version Explorer shows in the Properties dialog
+# can track the one baked in below by -ldflags.
+echo "=== windows resources ==="
+if [ "$TARGET_GOOS" != "windows" ]; then
+  echo "    skipped: the target is $TARGET_GOOS/$TARGET_GOARCH and .syso resources are Windows-only"
+elif ! command -v goversioninfo >/dev/null 2>&1; then
+  echo "NOTE: goversioninfo is not on PATH, so the executable gets no icon and no"
+  echo "NOTE: version resource. Install it and rebuild:"
+  echo "NOTE:   go install github.com/josephspurrier/goversioninfo/cmd/goversioninfo@latest"
+else
+  if ! ( cd "$BE_DIR" && go run ./tools/icongen ); then
+    echo "FAIL: icongen could not draw the icon" >&2
+    exit 1
+  fi
+
+  # Windows stores a version as four 16-bit numbers, so the git-derived string
+  # only maps onto them when it opens with dotted numbers. A bare commit hash or
+  # "dev" leaves the placeholders in winres/versioninfo.json alone and overrides
+  # just the text fields.
+  ver_args=(-file-version "$VERSION" -product-version "$VERSION")
+  if [[ "$VERSION" =~ ^v?([0-9]+)\.([0-9]+)\.([0-9]+)(\.([0-9]+))? ]]; then
+    major="${BASH_REMATCH[1]}"
+    minor="${BASH_REMATCH[2]}"
+    patch="${BASH_REMATCH[3]}"
+    build="${BASH_REMATCH[5]:-0}"
+    ver_args+=(-ver-major "$major" -ver-minor "$minor" -ver-patch "$patch" -ver-build "$build")
+    ver_args+=(-product-ver-major "$major" -product-ver-minor "$minor" \
+               -product-ver-patch "$patch" -product-ver-build "$build")
+  fi
+
+  # goversioninfo resolves the JSON, its IconPath and its output against the
+  # working directory, so run it from winres/ and move what it writes into the
+  # package directory -- Go only links .syso from the directory it is building.
+  if ! ( cd "$BE_DIR/winres" && goversioninfo "${ver_args[@]}" -platform-specific versioninfo.json ); then
+    echo "FAIL: goversioninfo could not build the resource objects" >&2
+    exit 1
+  fi
+  mv "$BE_DIR"/winres/resource_windows_*.syso "$BE_DIR/cmd/server/"
+  echo "    wrote 4 resource objects for $TARGET_GOARCH (version $VERSION)"
+fi
+
+# --- 4. build ----------------------------------------------------------------
 echo "=== go build ==="
 mkdir -p "$RELEASE_DIR"
 (
@@ -127,7 +172,7 @@ mkdir -p "$RELEASE_DIR"
 )
 chmod +x "$RELEASE_DIR/$BIN_NAME"
 
-# --- 4. assemble the release directory ---------------------------------------
+# --- 5. assemble the release directory ---------------------------------------
 # release/data is never cleared or written to. A live blog database is the one
 # thing here that cannot be rebuilt, and clobbering it is far worse than
 # starting from an empty directory.

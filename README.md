@@ -72,6 +72,24 @@ release/
 
 **`release/data/` 不会被脚本覆盖。** 数据库是唯一不可再生的东西，脚本只建空目录；如果 `backend/data/blog.db` 存在而 `release/data/` 里没有，它只打一行 NOTE 提醒你手动拷贝，绝不代劳。
 
+### Windows 图标与版本信息
+
+Windows 产物自带图标和版本元数据（资源管理器里「属性 → 详细信息」能看到），这些资源由 `backend/winres/` 管：
+
+- `tools/icongen` 用 Go 代码画出图标——图形是一条圆角底加一个字母 `b`，画在 1024² 的设计空间里再降采样到各个尺寸，所以改几个常量重跑一次就能改图，不需要打开画图软件，仓库里也不用塞一个二进制贴图
+- `winres/versioninfo.json` 是版本元数据（产品名、描述、版权、占位版本号）
+- [goversioninfo](https://github.com/josephspurrier/goversioninfo) 把这两样编成 `.syso`，Go 再把它链进 exe
+
+goversioninfo 是**外部工具**，装一次即可：
+
+```sh
+go install github.com/josephspurrier/goversioninfo/cmd/goversioninfo@latest
+```
+
+没装也能正常打包，只是产物没有图标和版本标签（脚本会打一行 NOTE 说明）。版本号能解析出 `1.2.3` 时会同时写进资源管理器显示的**数值**版本；解析不出来（比如 `1daaee3-dirty` 这种提交哈希）就只覆盖文本字段，数值保留 `versioninfo.json` 里的占位值。
+
+交叉编译到非 Windows 目标时这一步自动跳过：`.syso` 只在 Windows 上有意义，而 goversioninfo 生成的 `resource_windows_*.syso` 这个命名本身也保证它们不会被链进 Linux 二进制——即使 `cmd/server/` 里还留着上一次 Windows 构建的残留文件也不会。
+
 前端是**直接从二进制里读出来**服务的（`internal/web/embed.go`），不做「启动时解压到临时目录」——少一次写盘、少一个清理步骤，也就少一类「临时目录不可写」的启动失败。代价是内嵌文件没有修改时间，所以缓存头是显式写死的：`index.html` 用 `no-cache`（它决定引用哪些带哈希的资源，缓存它等于把浏览器钉在旧构建上），`assets/` 用一年 `immutable`。
 
 开发时仍然前后端分开跑（见上面的快速开始）。想临时覆盖内嵌前端，把 `server.staticDir` 指向一个目录即可；指向的路径不存在或没有 `index.html` 时会**自动回退到内嵌副本**，所以配错不会把站点打挂。
@@ -181,6 +199,8 @@ cd backend && go run ./cmd/dbdump ../data/blog.db
 │   ├── cmd/server/          入口
 │   ├── configs/config.yaml  配置（全部带注释）
 │   ├── scripts/             端到端测试脚本 + 打包脚本
+│   ├── tools/icongen/       用 Go 代码画出 Windows 图标（纯标准库）
+│   ├── winres/              Windows 资源：versioninfo.json 与它产出的图标
 │   ├── release/             打包产物（已 gitignore）
 │   └── internal/
 │       ├── biz/             业务逻辑与线上 DTO

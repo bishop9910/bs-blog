@@ -15,6 +15,12 @@ after changing Go code alone.
 The release folder is assembled in place and data/ is never cleared, so an
 existing database there survives a rebuild.
 
+On Windows the executable also gets an icon and a version resource, both built
+from winres/: tools/icongen draws the artwork and goversioninfo compiles
+winres/versioninfo.json and that artwork into .syso objects, which Go links into
+the binary. goversioninfo is an external tool, so a machine without it still gets
+a working executable -- just without the icon and the version tab.
+
 .EXAMPLE
 .\scripts\build-release.ps1
 .EXAMPLE
@@ -79,6 +85,58 @@ $staged = Get-ChildItem -Path $embedDir -Recurse -File |
     Where-Object { $_.Name -ne '.gitkeep' } |
     Measure-Object -Property Length -Sum
 Write-Output ("staged {0} files, {1:N1} KB" -f $staged.Count, (($staged.Sum / 1KB)))
+
+Write-Output '=== windows resources ==='
+# The icon is drawn from code (tools/icongen) and the version resource is
+# compiled by goversioninfo into a .syso -- a COFF object Go links straight into
+# the executable. Both are regenerated on every build instead of being checked
+# in, which is the only way the version Explorer shows in the Properties dialog
+# can track the one baked in below by -ldflags.
+$targetOS = if ($env:GOOS) { $env:GOOS } else { (& go env GOOS).Trim() }
+$targetArch = if ($env:GOARCH) { $env:GOARCH } else { (& go env GOARCH).Trim() }
+if ($targetOS -ne 'windows') {
+    Write-Output "skipped: the target is $targetOS/$targetArch and .syso resources are Windows-only"
+} elseif (-not (Get-Command goversioninfo -ErrorAction SilentlyContinue)) {
+    Write-Output 'NOTE: goversioninfo is not on PATH, so the executable gets no icon and'
+    Write-Output '      no version resource. Install it and rebuild:'
+    Write-Output '        go install github.com/josephspurrier/goversioninfo/cmd/goversioninfo@latest'
+} else {
+    Push-Location $be
+    try {
+        & go run ./tools/icongen
+        if ($LASTEXITCODE -ne 0) { Write-Output "FAIL: icongen exit=$LASTEXITCODE"; exit 1 }
+
+        # Windows stores a version as four 16-bit numbers, so the git-derived
+        # string only maps onto them when it opens with dotted numbers. A bare
+        # commit hash or "dev" leaves the placeholders in winres/versioninfo.json
+        # alone and overrides just the text fields.
+        $verArgs = @('-file-version', $Version, '-product-version', $Version)
+        if ($Version -match '^v?(\d+)\.(\d+)\.(\d+)(?:\.(\d+))?') {
+            $nums = @([int]$Matches[1], [int]$Matches[2], [int]$Matches[3])
+            $nums += if ($Matches[4]) { [int]$Matches[4] } else { 0 }
+            $verArgs += @('-ver-major', $nums[0], '-ver-minor', $nums[1], '-ver-patch', $nums[2], '-ver-build', $nums[3])
+            $verArgs += @('-product-ver-major', $nums[0], '-product-ver-minor', $nums[1], '-product-ver-patch', $nums[2], '-product-ver-build', $nums[3])
+        }
+
+        # goversioninfo resolves the JSON, its IconPath and its output against
+        # the working directory, so run it from winres/ and move what it writes
+        # into the package directory -- Go only links .syso from the directory it
+        # is building.
+        Push-Location (Join-Path $be 'winres')
+        try {
+            & goversioninfo @verArgs -platform-specific versioninfo.json
+            $code = $LASTEXITCODE
+        } finally {
+            Pop-Location
+        }
+        if ($code -ne 0) { Write-Output "FAIL: goversioninfo exit=$code"; exit 1 }
+
+        Move-Item (Join-Path $be 'winres\resource_windows_*.syso') (Join-Path $be 'cmd\server\') -Force
+        Write-Output "wrote 4 resource objects for $targetArch (version $Version)"
+    } finally {
+        Pop-Location
+    }
+}
 
 Write-Output '=== go build ==='
 New-Item -ItemType Directory -Force -Path $release | Out-Null
