@@ -46,18 +46,29 @@ pnpm dev
 powershell -File backend/scripts/build-release.ps1
 ```
 
-一条命令走完：`pnpm build` 产出前端 → 复制进 `backend/internal/web/dist/` → 用 `go:embed` 把前端**编进二进制** → 在 `backend/release/` 下组装交付物：
+```bash
+bash backend/scripts/build-release.sh
+```
+
+两个脚本做的事完全一样，按平台挑一个：Windows 用 `.ps1`，Linux / macOS 用 `.sh`。一条命令走完：`pnpm build` 产出前端 → 复制进 `backend/internal/web/dist/` → 用 `go:embed` 把前端**编进二进制** → 在 `backend/release/` 下组装交付物：
 
 ```
 release/
-├── bs-blog.exe        前端已内嵌，单个文件即可运行
+├── bs-blog.exe        前端已内嵌，单个文件即可运行（Linux 上叫 bs-blog）
 ├── configs/config.yaml
 └── data/uploads/      图片上传目录
 ```
 
-整个目录拷到别的机器就能跑——**不需要 Node，也不需要 dist 目录**，在 `release/` 下执行 `.\bs-blog.exe`，浏览器开 <http://127.0.0.1:8080>。
+整个目录拷到别的机器就能跑——**不需要 Node，也不需要 dist 目录**，在 `release/` 下执行 `.\bs-blog.exe`（Linux 上是 `./bs-blog`），浏览器开 <http://127.0.0.1:8080>。
 
-`-Version 1.2.3` 指定版本号（默认取 `git describe --tags --always --dirty`，会打进启动日志）；`-SkipFrontend` 跳过 `pnpm build`，复用已有的 `dist/`。
+| 用途 | `.ps1` | `.sh` |
+| --- | --- | --- |
+| 指定版本号 | `-Version 1.2.3` | `-v 1.2.3` |
+| 跳过前端构建 | `-SkipFrontend` | `-s` |
+
+版本号默认取 `git describe --tags --always --dirty`，会打进启动日志。
+
+`.sh` 还认 `GOOS` / `GOARCH` 环境变量，所以在 Linux 上交叉编 Windows 版本也是可以的：`GOOS=windows bash backend/scripts/build-release.sh`，产物名会自动变成 `bs-blog.exe`。反过来，在 Linux 上直接跑出来的是一个**静态**二进制（`CGO_ENABLED=0`，SQLite 驱动是纯 Go 的），拷到任何 amd64 Linux 都能直接跑。
 
 **`release/data/` 不会被脚本覆盖。** 数据库是唯一不可再生的东西，脚本只建空目录；如果 `backend/data/blog.db` 存在而 `release/data/` 里没有，它只打一行 NOTE 提醒你手动拷贝，绝不代劳。
 
@@ -68,10 +79,12 @@ release/
 要单独手工构建也可以：
 
 ```sh
-pnpm build                        # 前端产物到 dist/
+pnpm build                            # 前端产物到 dist/
 cd backend
-go build -o bs-blog.exe ./cmd/server   # 从 backend/ 启动时会去读 ../dist
+go build -o bs-blog ./cmd/server      # 从 backend/ 启动时会去读 ../dist
 ```
+
+这样编出来的二进制**没有内嵌前端**（只嵌了占位的 `.gitkeep`），启动时会打印一条「serving the API only」的警告；要出页面就得让 `server.staticDir` 指向 `../dist`。
 
 ---
 
@@ -88,7 +101,7 @@ powershell -File backend/scripts/dev.ps1     # 开发回路：vite dev + /api �
 
 它们会在 `.smoke/` / `.smokeweb/` / `.smokeprod/` / `.smokedev/` 下起一次性服务和一次性数据库，跑完自动清理，**不会碰到真实数据**。
 
-打包用的 `backend/scripts/build-release.ps1` 不在这四个里面：它只读前端产物、只写 `backend/release/`，既不碰数据库也不起服务，所以不需要在测试前跑。
+打包用的 `backend/scripts/build-release.ps1`（Linux 上是 `build-release.sh`）不在这四个里面：它们只读前端产物、只写 `backend/release/`，既不碰数据库也不起服务，所以不需要在测试前跑。
 
 前三个脚本的区别：`smoke.ps1` 只管接口；`web.ps1` 用一个手写的假 `dist/` 验证托管逻辑；`prod.ps1` 用 `pnpm build` 真正产出的 `dist/`，会解析 `index.html` 里引用的每一个资源并逐个请求，能抓到「页面指向了一个 Vite 根本没生成的文件」这类假 `dist/` 永远看不见的问题。**先跑 `pnpm build` 再跑 `prod.ps1`。**
 
