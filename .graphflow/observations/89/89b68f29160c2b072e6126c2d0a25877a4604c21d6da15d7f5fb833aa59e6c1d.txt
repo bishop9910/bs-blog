@@ -1,0 +1,611 @@
+<path>C:\Users\bisho\Desktop\bs-blog\src\views\admin\PostEditorView.vue</path>
+<type>file</type>
+<content>
+1: <script setup lang="ts">
+2: import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+3: import { NButton, NInput, NPopconfirm, NSelect, useMessage } from 'naive-ui'
+4: import {
+5:   PhArrowSquareOut,
+6:   PhCheckCircle,
+7:   PhFloppyDisk,
+8:   PhTrash,
+9:   PhXCircle,
+10: } from '@phosphor-icons/vue'
+11: import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
+12: import {
+13:   checkSlug,
+14:   createPost,
+15:   deletePost,
+16:   getAdminPost,
+17:   listTags,
+18:   publishPost,
+19:   unpublishPost,
+20:   updatePost,
+21: } from '@/api/posts'
+22: import type { PostInput, PostStatus } from '@/types/blog'
+23: import RichTextEditor from '@/components/editor/RichTextEditor.vue'
+24: import { countWords, readingMinutes, slugify } from '@/utils/text'
+25: 
+26: const route = useRoute()
+27: const router = useRouter()
+28: const message = useMessage()
+29: 
+30: const loading = ref(true)
+31: const saving = ref(false)
+32: const publishing = ref(false)
+33: const status = ref<PostStatus>('draft')
+34: const postId = ref(0)
+35: const dirty = ref(false)
+36: const tagOptions = ref<{ label: string; value: string }[]>([])
+37: 
+38: const form = reactive({
+39:   title: '',
+40:   slug: '',
+41:   summary: '',
+42:   coverUrl: '',
+43:   contentHtml: '',
+44:   contentJson: '{}',
+45:   tagNames: [] as string[],
+46:   visibility: 'public' as 'public' | 'private',
+47:   metaTitle: '',
+48:   metaDescription: '',
+49: })
+50: 
+51: /** The slug is auto-derived from the title only until the author edits it. */
+52: const slugTouched = ref(false)
+53: const slugState = ref<'idle' | 'checking' | 'ok' | 'taken'>('idle')
+54: 
+55: const isNew = computed(() => route.name === 'admin-post-new')
+56: const heading = computed(() => (isNew.value ? '写新文章' : form.title || '编辑文章'))
+57: const isPublished = computed(() => status.value === 'published')
+58: 
+59: const words = computed(() => countWords(form.contentHtml))
+60: const minutes = computed(() => readingMinutes(form.contentHtml))
+61: 
+62: const slugHint = computed(() => {
+63:   if (slugState.value === 'checking') return '正在检查…'
+64:   if (slugState.value === 'taken') return '这个地址已被占用'
+65:   if (slugState.value === 'ok') return '可以使用'
+66:   return '留空会根据标题自动生成'
+67: })
+68: 
+69: let slugTimer = 0
+70: 
+71: function scheduleSlugCheck() {
+72:   window.clearTimeout(slugTimer)
+73:   const candidate = form.slug.trim()
+74:   if (!candidate) {
+75:     slugState.value = 'idle'
+76:     return
+77:   }
+78:   slugState.value = 'checking'
+79:   slugTimer = window.setTimeout(async () => {
+80:     try {
+81:       const result = await checkSlug(candidate, postId.value || undefined)
+82:       slugState.value = result.available ? 'ok' : 'taken'
+83:     } catch {
+84:       // A failed probe must never block saving — the server re-checks anyway.
+85:       slugState.value = 'idle'
+86:     }
+87:   }, 400)
+88: }
+89: 
+90: function onSlugInput() {
+91:   slugTouched.value = true
+92:   scheduleSlugCheck()
+93: }
+94: 
+95: watch(
+96:   () => form.title,
+97:   (title) => {
+98:     if (slugTouched.value || !isNew.value) return
+99:     form.slug = slugify(title)
+100:     scheduleSlugCheck()
+101:   },
+102: )
+103: 
+104: /**
+105:  * Set while the form is being filled programmatically (a load, or the server's
+106:  * echo after a save). The dirty flag must not be raised by our own writes.
+107:  */
+108: let applyingForm = false
+109: 
+110: // Any edit at all means there is something to lose on navigation.
+111: // Sync flush: the flag above is only meaningful at mutation time, but a queued
+112: // watcher would run after the caller has already reset it.
+113: watch(
+114:   form,
+115:   () => {
+116:     if (!applyingForm) dirty.value = true
+117:   },
+118:   { flush: 'sync' },
+119: )
+120: 
+121: function payload(): PostInput {
+122:   return {
+123:     title: form.title.trim(),
+124:     slug: form.slug.trim() || undefined,
+125:     summary: form.summary.trim(),
+126:     coverUrl: form.coverUrl.trim(),
+127:     contentHtml: form.contentHtml,
+128:     contentJson: form.contentJson,
+129:     tagNames: form.tagNames,
+130:     visibility: form.visibility,
+131:     metaTitle: form.metaTitle.trim(),
+132:     metaDescription: form.metaDescription.trim(),
+133:   }
+134: }
+135: 
+136: async function save(options: { silent?: boolean } = {}): Promise<boolean> {
+137:   if (!form.title.trim()) {
+138:     message.warning('标题不能为空')
+139:     return false
+140:   }
+141:   if (slugState.value === 'taken') {
+142:     message.warning('这个地址已被占用，换一个再保存')
+143:     return false
+144:   }
+145: 
+146:   saving.value = true
+147:   try {
+148:     if (isNew.value) {
+149:       const created = await createPost(payload())
+150:       applyingForm = true
+151:       postId.value = created.id
+152:       status.value = created.status
+153:       form.slug = created.slug
+154:       slugState.value = 'ok'
+155:       applyingForm = false
+156:       dirty.value = false
+157:       // Replace so "back" leaves the editor instead of returning to a blank form.
+158:       await router.replace({ name: 'admin-post-edit', params: { id: String(created.id) } })
+159:       if (!options.silent) message.success('草稿已保存')
+160:     } else {
+161:       const updated = await updatePost(postId.value, payload())
+162:       applyingForm = true
+163:       status.value = updated.status
+164:       form.slug = updated.slug
+165:       slugState.value = 'ok'
+166:       applyingForm = false
+167:       dirty.value = false
+168:       if (!options.silent) message.success('已保存')
+169:     }
+170:     return true
+171:   } catch (caught) {
+172:     message.error(caught instanceof Error ? caught.message : '保存失败')
+173:     return false
+174:   } finally {
+175:     saving.value = false
+176:   }
+177: }
+178: 
+179: async function togglePublish() {
+180:   if (isNew.value || dirty.value) {
+181:     const ok = await save({ silent: true })
+182:     if (!ok) return
+183:   }
+184:   publishing.value = true
+185:   try {
+186:     const updated = isPublished.value
+187:       ? await unpublishPost(postId.value)
+188:       : await publishPost(postId.value)
+189:     status.value = updated.status
+190:     // Report the status the server actually stored. Reading isPublished here
+191:     // would be a read-after-write of the line above, inverting the message.
+192:     message.success(updated.status === 'published' ? '已发布' : '已转为草稿')
+193:   } catch (caught) {
+194:     message.error(caught instanceof Error ? caught.message : '操作失败')
+195:   } finally {
+196:     publishing.value = false
+197:   }
+198: }
+199: 
+200: async function remove() {
+201:   if (isNew.value) {
+202:     void router.push({ name: 'admin-posts' })
+203:     return
+204:   }
+205:   try {
+206:     await deletePost(postId.value)
+207:     message.success('已删除')
+208:     void router.push({ name: 'admin-posts' })
+209:   } catch (caught) {
+210:     message.error(caught instanceof Error ? caught.message : '删除失败')
+211:   }
+212: }
+213: 
+214: function preview() {
+215:   if (!form.slug.trim()) {
+216:     message.warning('先保存一次才有可预览的地址')
+217:     return
+218:   }
+219:   window.open(router.resolve({ name: 'post', params: { slug: form.slug } }).href, '_blank')
+220: }
+221: 
+222: /** Blank the form; used when the editor is pointed at a brand-new post. */
+223: function resetForm() {
+224:   applyingForm = true
+225:   form.title = ''
+226:   form.slug = ''
+227:   form.summary = ''
+228:   form.coverUrl = ''
+229:   form.contentHtml = ''
+230:   form.contentJson = '{}'
+231:   form.tagNames = []
+232:   form.visibility = 'public'
+233:   form.metaTitle = ''
+234:   form.metaDescription = ''
+235:   slugTouched.value = false
+236:   slugState.value = 'idle'
+237:   applyingForm = false
+238:   dirty.value = false
+239: }
+240: 
+241: async function load() {
+242:   loading.value = true
+243:   try {
+244:     if (isNew.value) {
+245:       resetForm()
+246:       postId.value = 0
+247:       status.value = 'draft'
+248:       return
+249:     }
+250:     const id = Number(route.params.id)
+251:     if (!Number.isFinite(id) || id <= 0) {
+252:       message.error('无效的文章 ID')
+253:       void router.replace({ name: 'admin-posts' })
+254:       return
+255:     }
+256:     const post = await getAdminPost(id)
+257:     applyingForm = true
+258:     postId.value = post.id
+259:     status.value = post.status
+260:     form.title = post.title
+261:     form.slug = post.slug
+262:     form.summary = post.summary
+263:     form.coverUrl = post.coverUrl
+264:     form.contentHtml = post.contentHtml
+265:     form.contentJson = post.contentJson || '{}'
+266:     form.tagNames = post.tags.map((tag) => tag.name)
+267:     form.visibility = post.visibility
+268:     form.metaTitle = post.metaTitle ?? ''
+269:     form.metaDescription = post.metaDescription ?? ''
+270:     slugTouched.value = true
+271:     slugState.value = 'ok'
+272:     applyingForm = false
+273:     // Loading is not editing.
+274:     dirty.value = false
+275:   } catch (caught) {
+276:     message.error(caught instanceof Error ? caught.message : '加载失败')
+277:   } finally {
+278:     loading.value = false
+279:   }
+280: }
+281: 
+282: function onBeforeUnload(event: BeforeUnloadEvent) {
+283:   if (!dirty.value) return
+284:   event.preventDefault()
+285: }
+286: 
+287: onBeforeRouteLeave(() => {
+288:   if (!dirty.value) return true
+289:   return window.confirm('有未保存的修改，确定离开吗?')
+290: })
+291: 
+292: // The router reuses this component for /admin/posts/new and
+293: // /admin/posts/:id/edit, so onMounted alone never re-runs when the editor is
+294: // pointed at another post: switching between them used to leave the previous
+295: // post's body on screen, or a blank form in front of one that does exist.
+296: watch(
+297:   () => `${String(route.name)}:${String(route.params.id ?? '')}`,
+298:   () => {
+299:     // save() replaces the URL with the post we already hold; reloading there
+300:     // would only make the editor flicker.
+301:     if (!isNew.value && Number(route.params.id) === postId.value) return
+302:     void load()
+303:   },
+304: )
+305: 
+306: onMounted(async () => {
+307:   window.addEventListener('beforeunload', onBeforeUnload)
+308:   try {
+309:     const result = await listTags()
+310:     tagOptions.value = result.tags.map((tag) => ({ label: tag.name, value: tag.name }))
+311:   } catch {
+312:     // Tag suggestions are optional; free-form tags still work.
+313:   }
+314:   await load()
+315: })
+316: 
+317: onBeforeUnmount(() => {
+318:   window.clearTimeout(slugTimer)
+319:   window.removeEventListener('beforeunload', onBeforeUnload)
+320: })
+321: </script>
+322: 
+323: <template>
+324:   <div class="editor">
+325:     <header class="editor__bar">
+326:       <div class="editor__ident">
+327:         <NInput
+328:           v-model:value="form.title"
+329:           class="editor__title"
+330:           placeholder="标题"
+331:           size="large"
+332:         />
+333:         <span class="editor__status" :class="{ 'is-live': isPublished }">
+334:           {{ isPublished ? '已发布' : '草稿' }}
+335:         </span>
+336:       </div>
+337: 
+338:       <div class="editor__actions">
+339:         <span class="editor__count">{{ words }} 字 · 约 {{ minutes }} 分钟</span>
+340: 
+341:         <NButton size="small" secondary :disabled="!form.slug" @click="preview">
+342:           <template #icon><PhArrowSquareOut :size="16" /></template>
+343:           预览
+344:         </NButton>
+345: 
+346:         <NButton size="small" secondary :loading="saving" @click="save()">
+347:           <template #icon><PhFloppyDisk :size="16" /></template>
+348:           保存
+349:         </NButton>
+350: 
+351:         <NButton
+352:           size="small"
+353:           :type="isPublished ? 'warning' : 'primary'"
+354:           :loading="publishing"
+355:           @click="togglePublish"
+356:         >
+357:           <template #icon>
+358:             <component :is="isPublished ? PhXCircle : PhCheckCircle" :size="16" />
+359:           </template>
+360:           {{ isPublished ? '转草稿' : '发布' }}
+361:         </NButton>
+362: 
+363:         <NPopconfirm @positive-click="remove">
+364:           <template #trigger>
+365:             <NButton size="small" quaternary type="error" :title="isNew ? '放弃' : '删除'">
+366:               <template #icon><PhTrash :size="16" /></template>
+367:             </NButton>
+368:           </template>
+369:           {{ isNew ? '放弃这篇草稿?' : '删除后无法恢复，确定吗?' }}
+370:         </NPopconfirm>
+371:       </div>
+372:     </header>
+373: 
+374:     <div v-if="loading" class="editor__loading">正在加载…</div>
+375: 
+376:     <div v-else class="editor__body">
+377:       <div class="editor__main">
+378:         <RichTextEditor
+379:           v-model="form.contentHtml"
+380:           min-height="540px"
+381:           placeholder="从这里开始写…"
+382:           @update:json="(json) => (form.contentJson = JSON.stringify(json))"
+383:         />
+384:       </div>
+385: 
+386:       <aside class="editor__side">
+387:         <section class="panel">
+388:           <h2 class="panel__title">发布</h2>
+389: 
+390:           <label class="field">
+391:             <span class="field__label">可见性</span>
+392:             <NSelect
+393:               v-model:value="form.visibility"
+394:               :options="[
+395:                 { label: '公开', value: 'public' },
+396:                 { label: '仅自己', value: 'private' },
+397:               ]"
+398:             />
+399:           </label>
+400: 
+401:           <label class="field">
+402:             <span class="field__label">地址</span>
+403:             <NInput
+404:               v-model:value="form.slug"
+405:               placeholder="post-slug"
+406:               @input="onSlugInput"
+407:             />
+408:             <span class="field__hint" :class="`is-${slugState}`">{{ slugHint }}</span>
+409:           </label>
+410: 
+411:           <label class="field">
+412:             <span class="field__label">标签</span>
+413:             <NSelect
+414:               v-model:value="form.tagNames"
+415:               multiple
+416:               filterable
+417:               tag
+418:               :options="tagOptions"
+419:               placeholder="回车创建新标签"
+420:             />
+421:           </label>
+422: 
+423:           <label class="field">
+424:             <span class="field__label">摘要</span>
+425:             <NInput
+426:               v-model:value="form.summary"
+427:               type="textarea"
+428:               :autosize="{ minRows: 3, maxRows: 6 }"
+429:               placeholder="留空会自动从正文截取"
+430:             />
+431:           </label>
+432:         </section>
+433: 
+434:         <section class="panel">
+435:           <h2 class="panel__title">封面</h2>
+436:           <label class="field">
+437:             <span class="field__label">图片地址</span>
+438:             <NInput v-model:value="form.coverUrl" placeholder="/uploads/… 或外部链接" />
+439:           </label>
+440:           <div v-if="form.coverUrl" class="cover">
+441:             <img :src="form.coverUrl" alt="封面预览" />
+442:           </div>
+443:           <p class="panel__hint">在「媒体」页上传图片后，把地址复制到这里。</p>
+444:         </section>
+445: 
+446:         <section class="panel">
+447:           <h2 class="panel__title">SEO</h2>
+448:           <label class="field">
+449:             <span class="field__label">页面标题</span>
+450:             <NInput v-model:value="form.metaTitle" placeholder="留空则用文章标题" />
+451:           </label>
+452:           <label class="field">
+453:             <span class="field__label">页面描述</span>
+454:             <NInput
+455:               v-model:value="form.metaDescription"
+456:               type="textarea"
+457:               :autosize="{ minRows: 2, maxRows: 4 }"
+458:               placeholder="搜索结果的摘要文字"
+459:             />
+460:           </label>
+461:         </section>
+462:       </aside>
+463:     </div>
+464:   </div>
+465: </template>
+466: 
+467: <style scoped>
+468: .editor {
+469:   display: flex;
+470:   flex-direction: column;
+471:   gap: var(--space-md);
+472: }
+473: 
+474: .editor__bar {
+475:   display: flex;
+476:   flex-wrap: wrap;
+477:   align-items: center;
+478:   gap: var(--space-md);
+479:   padding: var(--space-md);
+480:   border: 1px solid var(--border-subtle);
+481:   border-radius: var(--radius-lg);
+482:   background: var(--bg-card);
+483: }
+484: 
+485: .editor__ident {
+486:   display: flex;
+487:   align-items: center;
+488:   gap: var(--space-sm);
+489:   flex: 1;
+490:   min-width: 240px;
+491: }
+492: 
+493: .editor__title {
+494:   max-width: 520px;
+495: }
+496: 
+497: .editor__status {
+498:   flex-shrink: 0;
+499:   padding: 0.2em 0.6em;
+500:   border: 1px solid var(--border-strong);
+501:   border-radius: var(--radius-full);
+502:   color: var(--text-muted);
+503:   font-size: var(--text-2xs);
+504:   letter-spacing: var(--tracking-wide);
+505: }
+506: 
+507: .editor__status.is-live {
+508:   border-color: var(--success);
+509:   color: var(--success);
+510: }
+511: 
+512: .editor__actions {
+513:   display: flex;
+514:   flex-wrap: wrap;
+515:   align-items: center;
+516:   gap: var(--space-sm);
+517: }
+518: 
+519: .editor__count {
+520:   color: var(--text-muted);
+521:   font-size: var(--text-2xs);
+522:   font-variant-numeric: tabular-nums;
+523: }
+524: 
+525: .editor__loading {
+526:   padding: var(--space-3xl);
+527:   color: var(--text-muted);
+528:   text-align: center;
+529: }
+530: 
+531: .editor__body {
+532:   display: grid;
+533:   grid-template-columns: minmax(0, 1fr) 320px;
+534:   gap: var(--space-md);
+535:   align-items: start;
+536: }
+537: 
+538: .editor__main {
+539:   min-width: 0;
+540: }
+541: 
+542: .editor__side {
+543:   display: flex;
+544:   flex-direction: column;
+545:   gap: var(--space-md);
+546:   position: sticky;
+547:   top: calc(var(--header-h) + var(--space-lg));
+548: }
+549: 
+550: .panel {
+551:   display: flex;
+552:   flex-direction: column;
+553:   gap: var(--space-md);
+554:   padding: var(--space-md);
+555:   border: 1px solid var(--border-subtle);
+556:   border-radius: var(--radius-lg);
+557:   background: var(--bg-card);
+558: }
+559: 
+560: .panel__title {
+561:   margin: 0;
+562:   color: var(--text-primary);
+563:   font-family: var(--font-display);
+564:   font-size: var(--text-base);
+565: }
+566: 
+567: .panel__hint {
+568:   margin: 0;
+569:   color: var(--text-muted);
+570:   font-size: var(--text-2xs);
+571:   line-height: var(--leading-normal);
+572: }
+573: 
+574: .field__hint.is-taken {
+575:   color: var(--danger);
+576: }
+577: 
+578: .field__hint.is-ok {
+579:   color: var(--success);
+580: }
+581: 
+582: .cover {
+583:   overflow: hidden;
+584:   border: 1px solid var(--border-subtle);
+585:   border-radius: var(--radius-md);
+586:   aspect-ratio: 16 / 9;
+587:   background: var(--bg-inset);
+588: }
+589: 
+590: .cover img {
+591:   width: 100%;
+592:   height: 100%;
+593:   object-fit: cover;
+594: }
+595: 
+596: @media (max-width: 1100px) {
+597:   .editor__body {
+598:     grid-template-columns: minmax(0, 1fr);
+599:   }
+600: 
+601:   .editor__side {
+602:     position: static;
+603:   }
+604: }
+605: </style>
+
+(End of file - total 605 lines)
+</content>

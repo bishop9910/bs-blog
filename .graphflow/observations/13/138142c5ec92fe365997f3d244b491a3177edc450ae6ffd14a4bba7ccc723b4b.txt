@@ -1,0 +1,407 @@
+<path>C:\Users\bisho\Desktop\bs-blog\backend\internal\biz\post.go</path>
+<type>file</type>
+<content>
+1: package biz
+2: 
+3: import (
+4: 	"context"
+5: 	"errors"
+6: 	"fmt"
+7: 	"strings"
+8: 	"time"
+9: 
+10: 	"github.com/go-kratos/kratos/v2/log"
+11: 
+12: 	"github.com/bishop9910/bs-blog/backend/internal/data"
+13: 	"github.com/bishop9910/bs-blog/backend/internal/model"
+14: 	"github.com/bishop9910/bs-blog/backend/internal/pkg/sanitize"
+15: 	"github.com/bishop9910/bs-blog/backend/internal/pkg/textutil"
+16: )
+17: 
+18: // Limits on user-supplied post fields.
+19: const (
+20: 	maxTitleLength  = 255
+21: 	maxSlugLength   = 80
+22: 	maxSummaryRunes = 200
+23: 	defaultExcerpt  = 160
+24: 	emptyDocJSON    = "{}"
+25: )
+26: 
+27: // PostUsecase holds the rules for reading and writing posts.
+28: type PostUsecase struct {
+29: 	store *data.Store
+30: }
+31: 
+32: // NewPostUsecase wires the use case to storage.
+33: func NewPostUsecase(store *data.Store) *PostUsecase {
+34: 	return &PostUsecase{store: store}
+35: }
+36: 
+37: /* -------------------------------------------------------------------------- */
+38: /* Reads                                                                      */
+39: /* -------------------------------------------------------------------------- */
+40: 
+41: // ListPublic returns one page of published, public posts.
+42: func (uc *PostUsecase) ListPublic(ctx context.Context, q Query) (*PaginatedPosts, error) {
+43: 	return uc.list(ctx, q, true)
+44: }
+45: 
+46: // ListAdmin returns one page of posts of any status.
+47: func (uc *PostUsecase) ListAdmin(ctx context.Context, q Query) (*PaginatedPosts, error) {
+48: 	return uc.list(ctx, q, false)
+49: }
+50: 
+51: func (uc *PostUsecase) list(ctx context.Context, q Query, public bool) (*PaginatedPosts, error) {
+52: 	filter := data.PostFilter{
+53: 		PublishedOnly: public,
+54: 		Status:        strings.TrimSpace(q.Status),
+55: 		TagSlug:       strings.TrimSpace(q.Tag),
+56: 		Keyword:       strings.TrimSpace(q.Keyword),
+57: 		Sort:          strings.TrimSpace(q.Sort),
+58: 		Order:         strings.TrimSpace(q.Order),
+59: 		Page:          q.Page,
+60: 		PageSize:      q.PageSize,
+61: 	}
+62: 	filter.Normalize()
+63: 
+64: 	posts, total, err := uc.store.ListPosts(ctx, filter)
+65: 	if err != nil {
+66: 		return nil, internal("无法加载文章列表", err)
+67: 	}
+68: 
+69: 	return &PaginatedPosts{
+70: 		Items:    toPostSummaries(posts),
+71: 		Total:    total,
+72: 		Page:     filter.Page,
+73: 		PageSize: filter.PageSize,
+74: 	}, nil
+75: }
+76: 
+77: // GetPublished returns one article for the reader view, with its neighbours.
+78: func (uc *PostUsecase) GetPublished(ctx context.Context, slug string) (*PostDetailDTO, error) {
+79: 	post, err := uc.store.GetPostBySlug(ctx, strings.TrimSpace(slug), true)
+80: 	if err != nil {
+81: 		if errors.Is(err, data.ErrNotFound) {
+82: 			return nil, errNotFoundError("文章不存在或尚未发布")
+83: 		}
+84: 		return nil, internal("无法加载文章", err)
+85: 	}
+86: 
+87: 	// Counting the read is best-effort: a failure must not cost the reader the
+88: 	// article they asked for.
+89: 	if err := uc.store.IncrementView(ctx, post.ID); err != nil {
+90: 		log.Errorf("biz: incrementing view count for post %d: %v", post.ID, err)
+91: 	} else {
+92: 		post.ViewCount++
+93: 	}
+94: 
+95: 	nav := PostNavDTO{}
+96: 	if post.PublishedAt != nil {
+97: 		prev, next, err := uc.store.AdjacentPosts(ctx, *post.PublishedAt, post.ID)
+98: 		if err != nil {
+99: 			// Navigation is a nicety; losing it is not worth an error page.
+100: 			log.Errorf("biz: loading neighbours of post %d: %v", post.ID, err)
+101: 		} else {
+102: 			nav.Prev = toPostLinkDTO(prev)
+103: 			nav.Next = toPostLinkDTO(next)
+104: 		}
+105: 	}
+106: 
+107: 	return &PostDetailDTO{Post: toPostDTO(*post), Nav: nav}, nil
+108: }
+109: 
+110: // GetAdmin returns any post by id, drafts included.
+111: func (uc *PostUsecase) GetAdmin(ctx context.Context, id int64) (*PostDTO, error) {
+112: 	post, err := uc.store.GetPostByID(ctx, id)
+113: 	if err != nil {
+114: 		if errors.Is(err, data.ErrNotFound) {
+115: 			return nil, errNotFoundError("文章不存在")
+116: 		}
+117: 		return nil, internal("无法加载文章", err)
+118: 	}
+119: 	dto := toPostDTO(*post)
+120: 	return &dto, nil
+121: }
+122: 
+123: // Archive groups published posts by year and month, newest first.
+124: func (uc *PostUsecase) Archive(ctx context.Context) (*ArchiveDTO, error) {
+125: 	posts, err := uc.store.PublishedPosts(ctx)
+126: 	if err != nil {
+127: 		return nil, internal("无法加载归档", err)
+128: 	}
+129: 
+130: 	// Posts arrive newest-first, so appending preserves that order in the
+131: 	// year and month buckets as well.
+132: 	years := make([]ArchiveYearDTO, 0, 4)
+133: 	yearIndex := make(map[int]int, 4)
+134: 	monthIndex := make(map[[2]int]int, 12)
+135: 
+136: 	for _, post := range posts {
+137: 		if post.PublishedAt == nil {
+138: 			continue
+139: 		}
+140: 		published := post.PublishedAt.UTC()
+141: 		year, month := published.Year(), int(published.Month())
+142: 
+143: 		yi, ok := yearIndex[year]
+144: 		if !ok {
+145: 			years = append(years, ArchiveYearDTO{Year: year, Months: []ArchiveMonthDTO{}})
+146: 			yi = len(years) - 1
+147: 			yearIndex[year] = yi
+148: 		}
+149: 
+150: 		key := [2]int{year, month}
+151: 		mi, ok := monthIndex[key]
+152: 		if !ok {
+153: 			years[yi].Months = append(years[yi].Months, ArchiveMonthDTO{Month: month, Posts: []PostSummaryDTO{}})
+154: 			mi = len(years[yi].Months) - 1
+155: 			monthIndex[key] = mi
+156: 		}
+157: 
+158: 		years[yi].Months[mi].Posts = append(years[yi].Months[mi].Posts, toPostSummaryDTO(post))
+159: 		years[yi].Count++
+160: 	}
+161: 
+162: 	return &ArchiveDTO{Years: years}, nil
+163: }
+164: 
+165: // Tags lists the tags that appear on at least one public post.
+166: func (uc *PostUsecase) Tags(ctx context.Context) (*TagListDTO, error) {
+167: 	rows, err := uc.store.PublicTags(ctx)
+168: 	if err != nil {
+169: 		return nil, internal("无法加载标签", err)
+170: 	}
+171: 	out := make([]TagDTO, 0, len(rows))
+172: 	for _, row := range rows {
+173: 		out = append(out, toTagDTO(row.Tag, row.PostCount))
+174: 	}
+175: 	return &TagListDTO{Tags: out}, nil
+176: }
+177: 
+178: // CheckSlug answers whether a slug is free, and echoes back the normalised form
+179: // so the editor can show the user what will actually be stored.
+180: func (uc *PostUsecase) CheckSlug(ctx context.Context, raw string, excludeID int64) (*SlugCheckDTO, error) {
+181: 	slug := textutil.Slugify(strings.TrimSpace(raw))
+182: 	if slug == "" {
+183: 		return &SlugCheckDTO{Slug: "", Available: false}, nil
+184: 	}
+185: 	taken, err := uc.store.SlugTaken(ctx, slug, excludeID)
+186: 	if err != nil {
+187: 		return nil, internal("无法检查 slug", err)
+188: 	}
+189: 	return &SlugCheckDTO{Slug: slug, Available: !taken}, nil
+190: }
+191: 
+192: /* -------------------------------------------------------------------------- */
+193: /* Writes                                                                     */
+194: /* -------------------------------------------------------------------------- */
+195: 
+196: // Create stores a new post. It always starts as a draft; publishing is a
+197: // separate transition so that saving a half-finished thought is never
+198: // accidentally visible.
+199: func (uc *PostUsecase) Create(ctx context.Context, in PostInput) (*PostDTO, error) {
+200: 	title, err := validateTitle(in.Title)
+201: 	if err != nil {
+202: 		return nil, err
+203: 	}
+204: 
+205: 	slug, err := uc.resolveSlug(ctx, in.Slug, title, 0)
+206: 	if err != nil {
+207: 		return nil, err
+208: 	}
+209: 
+210: 	contentHTML := sanitize.HTML(in.ContentHTML)
+211: 	contentJSON := strings.TrimSpace(in.ContentJSON)
+212: 	if contentJSON == "" {
+213: 		contentJSON = emptyDocJSON
+214: 	}
+215: 
+216: 	post := &model.Post{
+217: 		Slug:            slug,
+218: 		Title:           title,
+219: 		Summary:         resolveSummary(in.Summary, contentHTML),
+220: 		CoverURL:        strings.TrimSpace(in.CoverURL),
+221: 		ContentHTML:     contentHTML,
+222: 		ContentJSON:     contentJSON,
+223: 		MetaTitle:       strings.TrimSpace(in.MetaTitle),
+224: 		MetaDescription: strings.TrimSpace(in.MetaDescription),
+225: 		Status:          model.StatusDraft,
+226: 		Visibility:      normalizeVisibility(in.Visibility),
+227: 		WordCount:       textutil.CountWords(contentHTML),
+228: 		ReadingMinutes:  textutil.ReadingMinutes(contentHTML),
+229: 	}
+230: 
+231: 	if err := uc.store.CreatePost(ctx, post, in.TagNames); err != nil {
+232: 		return nil, internal("无法保存文章", err)
+233: 	}
+234: 
+235: 	dto := toPostDTO(*post)
+236: 	return &dto, nil
+237: }
+238: 
+239: // Update overwrites a post's editable fields. Status and publishedAt are not
+240: // touched here — see Publish and Unpublish.
+241: func (uc *PostUsecase) Update(ctx context.Context, id int64, in PostInput) (*PostDTO, error) {
+242: 	post, err := uc.store.GetPostByID(ctx, id)
+243: 	if err != nil {
+244: 		if errors.Is(err, data.ErrNotFound) {
+245: 			return nil, errNotFoundError("文章不存在")
+246: 		}
+247: 		return nil, internal("无法加载文章", err)
+248: 	}
+249: 
+250: 	title, err := validateTitle(in.Title)
+251: 	if err != nil {
+252: 		return nil, err
+253: 	}
+254: 
+255: 	slug, err := uc.resolveSlug(ctx, in.Slug, title, id)
+256: 	if err != nil {
+257: 		return nil, err
+258: 	}
+259: 
+260: 	contentHTML := sanitize.HTML(in.ContentHTML)
+261: 	contentJSON := strings.TrimSpace(in.ContentJSON)
+262: 	if contentJSON == "" {
+263: 		contentJSON = emptyDocJSON
+264: 	}
+265: 
+266: 	post.Slug = slug
+267: 	post.Title = title
+268: 	post.Summary = resolveSummary(in.Summary, contentHTML)
+269: 	post.CoverURL = strings.TrimSpace(in.CoverURL)
+270: 	post.ContentHTML = contentHTML
+271: 	post.ContentJSON = contentJSON
+272: 	post.MetaTitle = strings.TrimSpace(in.MetaTitle)
+273: 	post.MetaDescription = strings.TrimSpace(in.MetaDescription)
+274: 	post.Visibility = normalizeVisibility(in.Visibility)
+275: 	post.WordCount = textutil.CountWords(contentHTML)
+276: 	post.ReadingMinutes = textutil.ReadingMinutes(contentHTML)
+277: 
+278: 	if err := uc.store.UpdatePost(ctx, post, in.TagNames); err != nil {
+279: 		return nil, internal("无法保存文章", err)
+280: 	}
+281: 
+282: 	dto := toPostDTO(*post)
+283: 	return &dto, nil
+284: }
+285: 
+286: // Delete removes a post and its tag links.
+287: func (uc *PostUsecase) Delete(ctx context.Context, id int64) error {
+288: 	if err := uc.store.DeletePost(ctx, id); err != nil {
+289: 		if errors.Is(err, data.ErrNotFound) {
+290: 			return errNotFoundError("文章不存在")
+291: 		}
+292: 		return internal("无法删除文章", err)
+293: 	}
+294: 	return nil
+295: }
+296: 
+297: // Publish moves a post to the public surface, stamping publishedAt the first
+298: // time only.
+299: func (uc *PostUsecase) Publish(ctx context.Context, id int64) (*PostDTO, error) {
+300: 	return uc.setStatus(ctx, id, model.StatusPublished)
+301: }
+302: 
+303: // Unpublish returns a post to draft, keeping its original publishedAt so a
+304: // later re-publish does not reorder the archive.
+305: func (uc *PostUsecase) Unpublish(ctx context.Context, id int64) (*PostDTO, error) {
+306: 	return uc.setStatus(ctx, id, model.StatusDraft)
+307: }
+308: 
+309: func (uc *PostUsecase) setStatus(ctx context.Context, id int64, status string) (*PostDTO, error) {
+310: 	post, err := uc.store.SetPostStatus(ctx, id, status)
+311: 	if err != nil {
+312: 		if errors.Is(err, data.ErrNotFound) {
+313: 			return nil, errNotFoundError("文章不存在")
+314: 		}
+315: 		return nil, internal("无法更新文章状态", err)
+316: 	}
+317: 	dto := toPostDTO(*post)
+318: 	return &dto, nil
+319: }
+320: 
+321: /* -------------------------------------------------------------------------- */
+322: /* Helpers                                                                    */
+323: /* -------------------------------------------------------------------------- */
+324: 
+325: func validateTitle(raw string) (string, error) {
+326: 	title := strings.TrimSpace(raw)
+327: 	if title == "" {
+328: 		return "", errBadRequest("标题不能为空")
+329: 	}
+330: 	if len([]rune(title)) > maxTitleLength {
+331: 		return "", errBadRequest("标题过长")
+332: 	}
+333: 	return title, nil
+334: }
+335: 
+336: // resolveSlug decides the stored slug.
+337: //
+338: // A slug the author typed is honoured, and a collision is reported rather than
+339: // silently renamed — the editor already checks availability, so a conflict here
+340: // means something changed underneath them. A slug derived from the title is
+341: // allowed to auto-suffix, because the author never asked for that exact string.
+342: func (uc *PostUsecase) resolveSlug(ctx context.Context, requested, title string, excludeID int64) (string, error) {
+343: 	explicit := strings.TrimSpace(requested)
+344: 	if explicit != "" {
+345: 		slug := truncateRunes(textutil.Slugify(explicit), maxSlugLength)
+346: 		if slug == "" {
+347: 			return "", errBadRequest("slug 只能包含字母、数字或汉字")
+348: 		}
+349: 		taken, err := uc.store.SlugTaken(ctx, slug, excludeID)
+350: 		if err != nil {
+351: 			return "", internal("无法检查 slug", err)
+352: 		}
+353: 		if taken {
+354: 			return "", errConflict("该 slug 已被其他文章占用")
+355: 		}
+356: 		return slug, nil
+357: 	}
+358: 
+359: 	base := truncateRunes(textutil.Slugify(title), maxSlugLength)
+360: 	if base == "" {
+361: 		base = fmt.Sprintf("post-%d", time.Now().UTC().Unix())
+362: 	}
+363: 
+364: 	candidate := base
+365: 	for attempt := 2; attempt <= 100; attempt++ {
+366: 		taken, err := uc.store.SlugTaken(ctx, candidate, excludeID)
+367: 		if err != nil {
+368: 			return "", internal("无法检查 slug", err)
+369: 		}
+370: 		if !taken {
+371: 			return candidate, nil
+372: 		}
+373: 		candidate = truncateRunes(fmt.Sprintf("%s-%d", base, attempt), maxSlugLength)
+374: 	}
+375: 
+376: 	return "", errConflict("无法为该标题生成唯一 slug，请手动指定")
+377: }
+378: 
+379: // resolveSummary prefers an author-written summary and otherwise derives one
+380: // from the body.
+381: func resolveSummary(explicit, contentHTML string) string {
+382: 	if s := strings.TrimSpace(explicit); s != "" {
+383: 		return truncateRunes(s, maxSummaryRunes)
+384: 	}
+385: 	return textutil.AutoExcerpt(contentHTML, defaultExcerpt)
+386: }
+387: 
+388: func normalizeVisibility(raw string) string {
+389: 	if strings.TrimSpace(raw) == model.VisibilityPrivate {
+390: 		return model.VisibilityPrivate
+391: 	}
+392: 	return model.VisibilityPublic
+393: }
+394: 
+395: func truncateRunes(s string, limit int) string {
+396: 	runes := []rune(s)
+397: 	if len(runes) <= limit {
+398: 		return s
+399: 	}
+400: 	return strings.Trim(string(runes[:limit]), "-")
+401: }
+
+(End of file - total 401 lines)
+</content>

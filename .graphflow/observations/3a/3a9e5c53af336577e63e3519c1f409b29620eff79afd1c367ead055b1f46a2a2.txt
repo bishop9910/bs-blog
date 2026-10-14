@@ -1,0 +1,363 @@
+<path>C:\Users\bisho\Desktop\bs-blog\backend\internal\service\service.go</path>
+<type>file</type>
+<content>
+1: // Package service exposes the blog's HTTP API.
+2: //
+3: // Routes are registered by hand rather than generated from protobuf, which
+4: // keeps the wire shape under direct control — the frontend types in
+5: // src/types/blog.ts are the contract — and keeps a code-generation step out of
+6: // the build. Kratos still supplies the router, the error model and the filter
+7: // plumbing.
+8: package service
+9: 
+10: import (
+11: 	"encoding/json"
+12: 	"errors"
+13: 	"fmt"
+14: 	"io"
+15: 	"net/http"
+16: 	"runtime/debug"
+17: 	"strconv"
+18: 	"strings"
+19: 	"time"
+20: 
+21: 	kerrors "github.com/go-kratos/kratos/v2/errors"
+22: 	"github.com/go-kratos/kratos/v2/log"
+23: 	khttp "github.com/go-kratos/kratos/v2/transport/http"
+24: 
+25: 	"github.com/bishop9910/bs-blog/backend/internal/biz"
+26: 	"github.com/bishop9910/bs-blog/backend/internal/conf"
+27: )
+28: 
+29: // APIPrefix is the mount point of the JSON API. The frontend's API_BASE
+30: // defaults to the same value.
+31: const APIPrefix = "/api/v1"
+32: 
+33: // Handler holds the use cases the routes delegate to.
+34: type Handler struct {
+35: 	auth  *biz.AuthUsecase
+36: 	posts *biz.PostUsecase
+37: 	media *biz.MediaUsecase
+38: 	site  *biz.SiteUsecase
+39: 
+40: 	maxBody        int64
+41: 	corsEnabled    bool
+42: 	allowAnyOrigin bool
+43: 	allowedOrigins map[string]struct{}
+44: 	logger         *log.Helper
+45: }
+46: 
+47: // NewHandler wires the HTTP layer to the use cases.
+48: func NewHandler(
+49: 	auth *biz.AuthUsecase,
+50: 	posts *biz.PostUsecase,
+51: 	media *biz.MediaUsecase,
+52: 	site *biz.SiteUsecase,
+53: 	cfg *conf.Config,
+54: 	logger log.Logger,
+55: ) *Handler {
+56: 	allowed := make(map[string]struct{}, len(cfg.CORS.AllowedOrigins))
+57: 	allowAny := false
+58: 	for _, origin := range cfg.CORS.AllowedOrigins {
+59: 		origin = strings.TrimRight(strings.TrimSpace(origin), "/")
+60: 		switch origin {
+61: 		case "":
+62: 			continue
+63: 		case "*":
+64: 			allowAny = true
+65: 		default:
+66: 			allowed[origin] = struct{}{}
+67: 		}
+68: 	}
+69: 
+70: 	return &Handler{
+71: 		auth:           auth,
+72: 		posts:          posts,
+73: 		media:          media,
+74: 		site:           site,
+75: 		maxBody:        cfg.Server.MaxBodyBytes,
+76: 		corsEnabled:    cfg.CORS.Enabled,
+77: 		allowAnyOrigin: allowAny,
+78: 		allowedOrigins: allowed,
+79: 		logger:         log.NewHelper(logger),
+80: 	}
+81: }
+82: 
+83: // Filters returns the server-wide filters, outermost first.
+84: //
+85: // Kratos applies ServerOptions of type Filter around the whole router, so
+86: // these cover every route including unmatched ones — unlike Middleware, which
+87: // never reaches handlers registered through Route().
+88: func (h *Handler) Filters() []khttp.FilterFunc {
+89: 	filters := []khttp.FilterFunc{h.recoverPanic}
+90: 	if h.corsEnabled {
+91: 		filters = append(filters, h.cors)
+92: 	}
+93: 	return append(filters, h.logRequest, h.limitBody)
+94: }
+95: 
+96: // Register attaches every API route to the server.
+97: func (h *Handler) Register(srv *khttp.Server) {
+98: 	r := srv.Route(APIPrefix)
+99: 
+100: 	// Public reading surface.
+101: 	h.route(r, http.MethodGet, "/posts", h.listPosts)
+102: 	h.route(r, http.MethodGet, "/posts/{slug}", h.getPost)
+103: 	h.route(r, http.MethodGet, "/archive", h.getArchive)
+104: 	h.route(r, http.MethodGet, "/tags", h.listTags)
+105: 	h.route(r, http.MethodGet, "/site", h.getSite)
+106: 
+107: 	// Session. Only the two routes that return or change owner data are
+108: 	// guarded; login and setup must be reachable while signed out.
+109: 	h.route(r, http.MethodPost, "/auth/login", h.login)
+110: 	h.route(r, http.MethodGet, "/auth/setup", h.setupState)
+111: 	h.route(r, http.MethodPost, "/auth/setup", h.setup)
+112: 	h.route(r, http.MethodPost, "/auth/logout", h.logout)
+113: 	h.route(r, http.MethodGet, "/auth/me", h.authed(h.me))
+114: 	h.route(r, http.MethodPost, "/auth/password", h.authed(h.changePassword))
+115: 
+116: 	// Admin: posts.
+117: 	h.route(r, http.MethodGet, "/admin/posts", h.authed(h.listAdminPosts))
+118: 	h.route(r, http.MethodPost, "/admin/posts", h.authed(h.createPost))
+119: 	h.route(r, http.MethodGet, "/admin/posts/{id}", h.authed(h.getAdminPost))
+120: 	h.route(r, http.MethodPut, "/admin/posts/{id}", h.authed(h.updatePost))
+121: 	h.route(r, http.MethodDelete, "/admin/posts/{id}", h.authed(h.deletePost))
+122: 	h.route(r, http.MethodPost, "/admin/posts/{id}/publish", h.authed(h.publishPost))
+123: 	h.route(r, http.MethodPost, "/admin/posts/{id}/unpublish", h.authed(h.unpublishPost))
+124: 	h.route(r, http.MethodGet, "/admin/slug", h.authed(h.checkSlug))
+125: 
+126: 	// Admin: media library.
+127: 	h.route(r, http.MethodGet, "/admin/media", h.authed(h.listMedia))
+128: 	h.route(r, http.MethodPost, "/admin/media", h.authed(h.uploadMedia))
+129: 	h.route(r, http.MethodDelete, "/admin/media/{id}", h.authed(h.deleteMedia))
+130: 
+131: 	// Admin: site metadata.
+132: 	h.route(r, http.MethodPut, "/admin/site", h.authed(h.updateSite))
+133: }
+134: 
+135: func (h *Handler) route(r *khttp.Router, method, pattern string, fn khttp.HandlerFunc) {
+136: 	r.Handle(method, pattern, fn)
+137: }
+138: 
+139: /* -------------------------------------------------------------------------- */
+140: /* Authentication plumbing                                                    */
+141: /* -------------------------------------------------------------------------- */
+142: 
+143: // authedFunc is a handler that requires the signed-in owner.
+144: type authedFunc func(ctx khttp.Context, user *biz.CurrentUser) error
+145: 
+146: // authed wraps a handler so the credential check happens in the handler body
+147: // rather than in a router filter. It is deliberately explicit: a new protected
+148: // route cannot silently end up unguarded, because there is no way to reach the
+149: // inner handler without going through currentUser first.
+150: func (h *Handler) authed(fn authedFunc) khttp.HandlerFunc {
+151: 	return func(ctx khttp.Context) error {
+152: 		user, err := h.currentUser(ctx)
+153: 		if err != nil {
+154: 			return err
+155: 		}
+156: 		return fn(ctx, user)
+157: 	}
+158: }
+159: 
+160: func (h *Handler) currentUser(ctx khttp.Context) (*biz.CurrentUser, error) {
+161: 	raw := strings.TrimSpace(ctx.Request().Header.Get("Authorization"))
+162: 	token := raw
+163: 	if len(raw) >= 7 && strings.EqualFold(raw[:7], "bearer ") {
+164: 		token = strings.TrimSpace(raw[7:])
+165: 	}
+166: 	if token == "" {
+167: 		return nil, kerrors.Unauthorized("UNAUTHORIZED", "请先登录")
+168: 	}
+169: 	return h.auth.Verify(ctx, token)
+170: }
+171: 
+172: /* -------------------------------------------------------------------------- */
+173: /* Request helpers                                                            */
+174: /* -------------------------------------------------------------------------- */
+175: 
+176: // decodeBody reads a JSON request body.
+177: //
+178: // Bind is not used because its error mapping is coarse, and an oversized body
+179: // has to be distinguishable from malformed JSON.
+180: func decodeBody(ctx khttp.Context, target any) error {
+181: 	body := ctx.Request().Body
+182: 	if body == nil {
+183: 		return kerrors.BadRequest("INVALID_ARGUMENT", "请求内容为空")
+184: 	}
+185: 
+186: 	if err := json.NewDecoder(body).Decode(target); err != nil {
+187: 		var maxErr *http.MaxBytesError
+188: 		if errors.As(err, &maxErr) {
+189: 			return kerrors.New(http.StatusRequestEntityTooLarge, "PAYLOAD_TOO_LARGE", "请求内容过大")
+190: 		}
+191: 		if errors.Is(err, io.EOF) {
+192: 			return kerrors.BadRequest("INVALID_ARGUMENT", "请求内容为空")
+193: 		}
+194: 		return kerrors.BadRequest("INVALID_ARGUMENT", "请求内容格式不正确")
+195: 	}
+196: 	return nil
+197: }
+198: 
+199: // noContent writes a 204 with a genuinely empty body.
+200: func noContent(ctx khttp.Context) error {
+201: 	ctx.Response().WriteHeader(http.StatusNoContent)
+202: 	return nil
+203: }
+204: 
+205: // queryOf maps the shared collection query parameters.
+206: //
+207: // The frontend strips status=all before sending, but a stale client or a
+208: // hand-typed URL may still include it, so it is normalised away here too.
+209: func queryOf(ctx khttp.Context) biz.Query {
+210: 	q := ctx.Query()
+211: 	status := strings.TrimSpace(q.Get("status"))
+212: 	if status == "all" {
+213: 		status = ""
+214: 	}
+215: 	return biz.Query{
+216: 		Page:     intArg(q.Get("page"), 1),
+217: 		PageSize: intArg(q.Get("pageSize"), 0),
+218: 		Status:   status,
+219: 		Tag:      strings.TrimSpace(q.Get("tag")),
+220: 		Keyword:  strings.TrimSpace(q.Get("keyword")),
+221: 		Sort:     strings.TrimSpace(q.Get("sort")),
+222: 		Order:    strings.TrimSpace(q.Get("order")),
+223: 	}
+224: }
+225: 
+226: func intArg(raw string, fallback int) int {
+227: 	raw = strings.TrimSpace(raw)
+228: 	if raw == "" {
+229: 		return fallback
+230: 	}
+231: 	value, err := strconv.Atoi(raw)
+232: 	if err != nil {
+233: 		return fallback
+234: 	}
+235: 	return value
+236: }
+237: 
+238: // pathID reads the {id} route variable.
+239: func pathID(ctx khttp.Context) (int64, error) {
+240: 	raw := strings.TrimSpace(ctx.Vars().Get("id"))
+241: 	id, err := strconv.ParseInt(raw, 10, 64)
+242: 	if err != nil || id <= 0 {
+243: 		return 0, kerrors.BadRequest("INVALID_ARGUMENT", "无效的资源 ID")
+244: 	}
+245: 	return id, nil
+246: }
+247: 
+248: /* -------------------------------------------------------------------------- */
+249: /* Filters                                                                    */
+250: /* -------------------------------------------------------------------------- */
+251: 
+252: func (h *Handler) recoverPanic(next http.Handler) http.Handler {
+253: 	return http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+254: 		defer func() {
+255: 			recovered := recover()
+256: 			if recovered == nil {
+257: 				return
+258: 			}
+259: 			// net/http raises this sentinel on purpose to abort a response;
+260: 			// swallowing it would hide an intentional shutdown.
+261: 			if err, ok := recovered.(error); ok && errors.Is(err, http.ErrAbortHandler) {
+262: 				panic(recovered)
+263: 			}
+264: 			h.logger.Errorf("panic serving %s %s: %v\n%s", req.Method, req.URL.Path, recovered, debug.Stack())
+265: 			khttp.DefaultErrorEncoder(res, req, kerrors.InternalServer("INTERNAL_ERROR", "服务器内部错误"))
+266: 		}()
+267: 		next.ServeHTTP(res, req)
+268: 	})
+269: }
+270: 
+271: func (h *Handler) cors(next http.Handler) http.Handler {
+272: 	return http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+273: 		origin := strings.TrimSpace(req.Header.Get("Origin"))
+274: 		if origin != "" && h.originAllowed(origin) {
+275: 			header := res.Header()
+276: 			header.Set("Access-Control-Allow-Origin", origin)
+277: 			header.Add("Vary", "Origin")
+278: 			header.Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
+279: 			header.Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+280: 			header.Set("Access-Control-Max-Age", "600")
+281: 		}
+282: 		next.ServeHTTP(res, req)
+283: 	})
+284: }
+285: 
+286: func (h *Handler) originAllowed(origin string) bool {
+287: 	if h.allowAnyOrigin {
+288: 		return true
+289: 	}
+290: 	_, ok := h.allowedOrigins[strings.TrimRight(origin, "/")]
+291: 	return ok
+292: }
+293: 
+294: func (h *Handler) logRequest(next http.Handler) http.Handler {
+295: 	return http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+296: 		started := time.Now()
+297: 		tracked := &statusWriter{ResponseWriter: res}
+298: 		next.ServeHTTP(tracked, req)
+299: 
+300: 		message := fmt.Sprintf("%s %s %d %s", req.Method, req.URL.Path, tracked.status(), time.Since(started).Round(time.Millisecond))
+301: 		if tracked.status() >= http.StatusInternalServerError {
+302: 			h.logger.Error(message)
+303: 			return
+304: 		}
+305: 		h.logger.Info(message)
+306: 	})
+307: }
+308: 
+309: // limitBody caps request bodies before any handler reads them.
+310: //
+311: // Kratos exposes no body-size option at all, so this filter is the only place
+312: // the limit can be enforced.
+313: func (h *Handler) limitBody(next http.Handler) http.Handler {
+314: 	return http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+315: 		if req.Body != nil && h.maxBody > 0 {
+316: 			req.Body = http.MaxBytesReader(res, req.Body, h.maxBody)
+317: 		}
+318: 		next.ServeHTTP(res, req)
+319: 	})
+320: }
+321: 
+322: // statusWriter records the response status so it can be logged.
+323: type statusWriter struct {
+324: 	http.ResponseWriter
+325: 	code int
+326: }
+327: 
+328: func (w *statusWriter) status() int {
+329: 	if w.code == 0 {
+330: 		return http.StatusOK
+331: 	}
+332: 	return w.code
+333: }
+334: 
+335: func (w *statusWriter) WriteHeader(code int) {
+336: 	if w.code == 0 {
+337: 		w.code = code
+338: 	}
+339: 	w.ResponseWriter.WriteHeader(code)
+340: }
+341: 
+342: func (w *statusWriter) Write(b []byte) (int, error) {
+343: 	if w.code == 0 {
+344: 		w.code = http.StatusOK
+345: 	}
+346: 	return w.ResponseWriter.Write(b)
+347: }
+348: 
+349: // Flush keeps streaming responses working through the wrapper.
+350: func (w *statusWriter) Flush() {
+351: 	if flusher, ok := w.ResponseWriter.(http.Flusher); ok {
+352: 		flusher.Flush()
+353: 	}
+354: }
+355: 
+356: // Unwrap lets http.ResponseController reach the underlying writer.
+357: func (w *statusWriter) Unwrap() http.ResponseWriter { return w.ResponseWriter }
+
+(End of file - total 357 lines)
+</content>

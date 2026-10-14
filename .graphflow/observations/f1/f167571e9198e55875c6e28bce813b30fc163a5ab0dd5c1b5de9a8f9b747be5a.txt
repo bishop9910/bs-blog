@@ -1,0 +1,312 @@
+<path>C:\Users\bisho\Desktop\bs-blog\src\views\admin\LoginView.vue</path>
+<type>file</type>
+<content>
+1: <script setup lang="ts">
+2: import { onMounted, reactive, ref } from 'vue'
+3: import { NButton, NForm, NFormItem, NInput, useMessage } from 'naive-ui'
+4: import { PhLockKey, PhWarningCircle } from '@phosphor-icons/vue'
+5: import { useRoute, useRouter } from 'vue-router'
+6: import { setupState } from '@/api/auth'
+7: import { useAuth } from '@/stores/auth'
+8: import ShaderBackdrop from '@/components/visual/ShaderBackdrop.vue'
+9: import ThemeToggle from '@/components/ThemeToggle.vue'
+10: 
+11: const route = useRoute()
+12: const router = useRouter()
+13: const message = useMessage()
+14: const { signIn, claim } = useAuth()
+15: 
+16: /** 'loading' while we ask the server whether an owner exists yet. */
+17: const mode = ref<'loading' | 'login' | 'setup'>('loading')
+18: const submitting = ref(false)
+19: const errorText = ref('')
+20: 
+21: const form = reactive({
+22:   username: '',
+23:   password: '',
+24:   confirm: '',
+25: })
+26: 
+27: const isSetup = () => mode.value === 'setup'
+28: 
+29: function redirectTarget() {
+30:   const raw = route.query.redirect
+31:   return typeof raw === 'string' && raw.startsWith('/') ? raw : ''
+32: }
+33: 
+34: async function submit() {
+35:   errorText.value = ''
+36: 
+37:   if (!form.username.trim()) {
+38:     errorText.value = '请输入用户名'
+39:     return
+40:   }
+41:   if (!form.password) {
+42:     errorText.value = '请输入密码'
+43:     return
+44:   }
+45:   if (isSetup() && form.password !== form.confirm) {
+46:     errorText.value = '两次输入的密码不一致'
+47:     return
+48:   }
+49: 
+50:   submitting.value = true
+51:   try {
+52:     if (isSetup()) {
+53:       // Must go through the store: the raw API call returns a token but never
+54:       // stores it, so the auth guard would bounce us straight back here.
+55:       await claim(form.username.trim(), form.password)
+56:       message.success('创建完成，已自动登录')
+57:     } else {
+58:       await signIn(form.username.trim(), form.password)
+59:     }
+60:     await router.replace(redirectTarget() || { name: 'admin-posts' })
+61:   } catch (caught) {
+62:     errorText.value = caught instanceof Error ? caught.message : '登录失败'
+63:   } finally {
+64:     submitting.value = false
+65:   }
+66: }
+67: 
+68: onMounted(async () => {
+69:   try {
+70:     const state = await setupState()
+71:     mode.value = state.initialised ? 'login' : 'setup'
+72:   } catch {
+73:     // If the API is unreachable, showing the login form is the least confusing
+74:     // fallback: the error surfaces when the user actually submits.
+75:     mode.value = 'login'
+76:   }
+77: })
+78: </script>
+79: 
+80: <template>
+81:   <div class="login">
+82:     <ShaderBackdrop class="login__backdrop" :intensity="0.9" />
+83: 
+84:     <div class="login__aside">
+85:       <RouterLink class="login__brand" :to="{ name: 'home' }">
+86:         <span class="login__mark" aria-hidden="true" />
+87:         bs-blog
+88:       </RouterLink>
+89: 
+90:       <div class="login__pitch">
+91:         <p class="eyebrow">{{ isSetup() ? '首次使用' : '仅限本人' }}</p>
+92:         <h1 class="login__title">
+93:           {{ isSetup() ? '先给这个博客上把锁' : '欢迎回来' }}
+94:         </h1>
+95:         <p class="login__text">
+96:           {{
+97:             isSetup()
+98:               ? '创建一个管理员账号。之后写文章、发文章、传图片，都要从这里进来。'
+99:               : '登录后可以写作、发布、管理媒体与站点信息。'
+100:           }}
+101:         </p>
+102:       </div>
+103: 
+104:       <ThemeToggle />
+105:     </div>
+106: 
+107:     <div class="login__panel">
+108:       <div class="login__card">
+109:         <p v-if="mode === 'loading'" class="login__loading">正在检查站点状态…</p>
+110: 
+111:         <NForm v-else :show-label="true" @submit.prevent="submit">
+112:           <NFormItem label="用户名" path="username">
+113:             <NInput
+114:               v-model:value="form.username"
+115:               placeholder="怎么称呼你"
+116:               :input-props="{ autocomplete: 'username', autocapitalize: 'off' }"
+117:               @keydown.enter="submit"
+118:             />
+119:           </NFormItem>
+120: 
+121:           <NFormItem label="密码" path="password">
+122:             <NInput
+123:               v-model:value="form.password"
+124:               type="password"
+125:               show-password-on="[REDACTED:credential]"
+126:               placeholder="至少 8 位"
+127:               :input-props="{
+128:                 autocomplete: isSetup() ? 'new-password' : '[REDACTED:credential]',
+129:               }"
+130:               @keydown.enter="submit"
+131:             />
+132:           </NFormItem>
+133: 
+134:           <NFormItem v-if="isSetup()" label="再输一次" path="confirm">
+135:             <NInput
+136:               v-model:value="form.confirm"
+137:               type="password"
+138:               show-password-on="[REDACTED:credential]"
+139:               placeholder="确认密码"
+140:               :input-props="{ autocomplete: 'new-password' }"
+141:               @keydown.enter="submit"
+142:             />
+143:           </NFormItem>
+144: 
+145:           <p v-if="errorText" class="login__error">
+146:             <PhWarningCircle :size="16" weight="bold" />
+147:             {{ errorText }}
+148:           </p>
+149: 
+150:           <NButton
+151:             class="login__submit"
+152:             type="primary"
+153:             block
+154:             size="large"
+155:             :loading="submitting"
+156:             attr-type="submit"
+157:             @click="submit"
+158:           >
+159:             <template #icon>
+160:               <PhLockKey :size="18" weight="bold" />
+161:             </template>
+162:             {{ isSetup() ? '创建并进入' : '登录' }}
+163:           </NButton>
+164:         </NForm>
+165: 
+166:         <RouterLink class="login__back" :to="{ name: 'home' }">← 回到博客</RouterLink>
+167:       </div>
+168:     </div>
+169:   </div>
+170: </template>
+171: 
+172: <style scoped>
+173: .login {
+174:   position: relative;
+175:   display: grid;
+176:   grid-template-columns: 1.1fr 1fr;
+177:   min-height: 100vh;
+178:   background: var(--bg-base);
+179: }
+180: 
+181: .login__backdrop {
+182:   position: absolute;
+183:   inset: 0;
+184:   z-index: 0;
+185:   opacity: 0.85;
+186: }
+187: 
+188: .login__aside {
+189:   position: relative;
+190:   z-index: 1;
+191:   display: flex;
+192:   flex-direction: column;
+193:   gap: var(--space-xl);
+194:   padding: var(--space-2xl) var(--space-3xl);
+195: }
+196: 
+197: .login__brand {
+198:   display: inline-flex;
+199:   align-items: center;
+200:   gap: var(--space-sm);
+201:   align-self: flex-start;
+202:   color: var(--text-primary);
+203:   font-family: var(--font-display);
+204:   font-size: var(--text-lg);
+205:   text-decoration: none;
+206: }
+207: 
+208: .login__mark {
+209:   width: 10px;
+210:   height: 10px;
+211:   border-radius: 3px;
+212:   background: var(--accent);
+213:   box-shadow: 0 0 12px var(--glow-accent);
+214: }
+215: 
+216: .login__pitch {
+217:   display: flex;
+218:   flex-direction: column;
+219:   gap: var(--space-md);
+220:   max-width: 34ch;
+221:   margin: auto 0;
+222: }
+223: 
+224: .login__title {
+225:   margin: 0;
+226:   color: var(--text-primary);
+227:   font-family: var(--font-display);
+228:   font-size: var(--text-4xl);
+229:   font-weight: 600;
+230:   letter-spacing: var(--tracking-tight);
+231:   line-height: var(--leading-tight);
+232: }
+233: 
+234: .login__text {
+235:   margin: 0;
+236:   color: var(--text-secondary);
+237:   line-height: var(--leading-relaxed);
+238: }
+239: 
+240: .login__panel {
+241:   position: relative;
+242:   z-index: 1;
+243:   display: flex;
+244:   align-items: center;
+245:   justify-content: center;
+246:   padding: var(--space-2xl);
+247:   background: color-mix(in srgb, var(--bg-elevated) 82%, transparent);
+248:   backdrop-filter: blur(18px);
+249:   border-left: 1px solid var(--border-subtle);
+250: }
+251: 
+252: .login__card {
+253:   display: flex;
+254:   flex-direction: column;
+255:   gap: var(--space-lg);
+256:   width: 100%;
+257:   max-width: 360px;
+258: }
+259: 
+260: .login__loading {
+261:   color: var(--text-muted);
+262:   font-size: var(--text-sm);
+263: }
+264: 
+265: .login__error {
+266:   display: flex;
+267:   align-items: center;
+268:   gap: var(--space-xs);
+269:   margin: 0 0 var(--space-md);
+270:   color: var(--danger);
+271:   font-size: var(--text-sm);
+272: }
+273: 
+274: .login__submit {
+275:   margin-top: var(--space-sm);
+276: }
+277: 
+278: .login__back {
+279:   color: var(--text-muted);
+280:   font-size: var(--text-xs);
+281:   text-decoration: none;
+282: }
+283: 
+284: .login__back:hover {
+285:   color: var(--accent);
+286: }
+287: 
+288: @media (max-width: 900px) {
+289:   .login {
+290:     grid-template-columns: minmax(0, 1fr);
+291:   }
+292: 
+293:   .login__aside {
+294:     padding: var(--space-xl) var(--space-lg) 0;
+295:   }
+296: 
+297:   .login__pitch {
+298:     margin: var(--space-xl) 0 0;
+299:   }
+300: 
+301:   .login__panel {
+302:     border-left: none;
+303:     padding: var(--space-xl) var(--space-lg) var(--space-3xl);
+304:   }
+305: }
+306: </style>
+
+(End of file - total 306 lines)
+</content>

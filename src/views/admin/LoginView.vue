@@ -32,6 +32,11 @@ function redirectTarget() {
 }
 
 async function submit() {
+  // The submit button lives inside the form and used to carry its own @click
+  // handler as well, so one press submitted twice: two /auth/setup calls raced,
+  // the loser hit the UNIQUE(username) constraint, and the console filled up
+  // with a 409 on a perfectly successful setup.
+  if (submitting.value) return
   errorText.value = ''
 
   if (!form.username.trim()) {
@@ -154,7 +159,6 @@ onMounted(async () => {
             size="large"
             :loading="submitting"
             attr-type="submit"
-            @click="submit"
           >
             <template #icon>
               <PhLockKey :size="18" weight="bold" />

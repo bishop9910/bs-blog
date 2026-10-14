@@ -47,6 +47,14 @@ const rowKey = (row: { id?: number }) => row.id ?? 0
 
 <template>
   <div class="admin-table">
+    <!--
+      Deliberately no flex-height. It makes the table body flex to fill its
+      parent's height, which only works when that parent has a definite one.
+      .admin-table instead sizes to its content inside a document-scrolling
+      page, so flex-height collapsed the body to zero: the header still
+      rendered, the rows did not, and because the collapsed body also swallowed
+      hit testing the rows could not even be clicked.
+    -->
     <NDataTable
       remote
       :columns="columns"
@@ -57,7 +65,6 @@ const rowKey = (row: { id?: number }) => row.id ?? 0
       :bordered="false"
       :single-line="false"
       size="small"
-      flex-height
     />
     <p v-if="!loading && rows.length === 0" class="admin-table__empty">{{ emptyText }}</p>
   </div>

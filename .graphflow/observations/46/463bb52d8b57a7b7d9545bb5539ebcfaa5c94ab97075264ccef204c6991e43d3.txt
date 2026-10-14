@@ -1,0 +1,286 @@
+diff --git a/src/components/admin/DataTable.vue b/src/components/admin/DataTable.vue
+index fd35123..632826b 100644
+--- a/src/components/admin/DataTable.vue
++++ b/src/components/admin/DataTable.vue
+@@ -47,6 +47,14 @@ const rowKey = (row: { id?: number }) => row.id ?? 0
+ 
+ <template>
+   <div class="admin-table">
++    <!--
++      Deliberately no flex-height. It makes the table body flex to fill its
++      parent's height, which only works when that parent has a definite one.
++      .admin-table instead sizes to its content inside a document-scrolling
++      page, so flex-height collapsed the body to zero: the header still
++      rendered, the rows did not, and because the collapsed body also swallowed
++      hit testing the rows could not even be clicked.
++    -->
+     <NDataTable
+       remote
+       :columns="columns"
+@@ -57,7 +65,6 @@ const rowKey = (row: { id?: number }) => row.id ?? 0
+       :bordered="false"
+       :single-line="false"
+       size="small"
+-      flex-height
+     />
+     <p v-if="!loading && rows.length === 0" class="admin-table__empty">{{ emptyText }}</p>
+   </div>
+diff --git a/src/views/admin/PostEditorView.vue b/src/views/admin/PostEditorView.vue
+index d52279d..814a0c8 100644
+--- a/src/views/admin/PostEditorView.vue
++++ b/src/views/admin/PostEditorView.vue
+@@ -219,10 +219,30 @@ function preview() {
+   window.open(router.resolve({ name: 'post', params: { slug: form.slug } }).href, '_blank')
+ }
+ 
++/** Blank the form; used when the editor is pointed at a brand-new post. */
++function resetForm() {
++  applyingForm = true
++  form.title = ''
++  form.slug = ''
++  form.summary = ''
++  form.coverUrl = ''
++  form.contentHtml = ''
++  form.contentJson = '{}'
++  form.tagNames = []
++  form.visibility = 'public'
++  form.metaTitle = ''
++  form.metaDescription = ''
++  slugTouched.value = false
++  slugState.value = 'idle'
++  applyingForm = false
++  dirty.value = false
++}
++
+ async function load() {
+   loading.value = true
+   try {
+     if (isNew.value) {
++      resetForm()
+       postId.value = 0
+       status.value = 'draft'
+       return
+@@ -269,6 +289,20 @@ onBeforeRouteLeave(() => {
+   return window.confirm('有未保存的修改，确定离开吗?')
+ })
+ 
++// The router reuses this component for /admin/posts/new and
++// /admin/posts/:id/edit, so onMounted alone never re-runs when the editor is
++// pointed at another post: switching between them used to leave the previous
++// post's body on screen, or a blank form in front of one that does exist.
++watch(
++  () => `${String(route.name)}:${String(route.params.id ?? '')}`,
++  () => {
++    // save() replaces the URL with the post we already hold; reloading there
++    // would only make the editor flicker.
++    if (!isNew.value && Number(route.params.id) === postId.value) return
++    void load()
++  },
++)
++
+ onMounted(async () => {
+   window.addEventListener('beforeunload', onBeforeUnload)
+   try {
+=== .gotmp top ===
+
+Name                Length  LastWriteTime      
+----                ------  -------------      
+bin                         2026/10/13 21:57:10
+dbdump                      2026/10/13 21:54:00
+dbsnap                      2026/10/13 23:26:20
+dbsnap2                     2026/10/13 23:29:46
+embed                       2026/10/14 10:44:24
+flow                        2026/10/13 21:59:52
+icotest                     2026/10/13 23:13:18
+lan                         2026/10/13 21:07:26
+rawtest                     2026/10/13 21:57:12
+reopen                      2026/10/14 10:43:16
+repro                       2026/10/13 20:51:59
+repro3                      2026/10/14 13:44:34
+serve                       2026/10/13 21:01:00
+suite                       2026/10/13 22:13:30
+tagtest                     2026/10/13 21:56:04
+verify                      2026/10/13 21:38:59
+bash-build.log      879     2026/10/13 22:20:54
+build.txt           398     2026/10/13 19:51:21
+build2.txt          5835    2026/10/13 19:51:49
+dbdump.exe          9579520 2026/10/13 23:29:46
+devcheck.log        1574    2026/10/13 20:12:46
+devfinal.log        1634    2026/10/13 20:14:39
+e2e.txt             738     2026/10/13 19:52:50
+favtest.syso        271360  2026/10/13 23:09:58
+flow.log            6980    2026/10/13 21:50:41
+flow2.log           6586    2026/10/13 21:51:56
+flow3.log           5917    2026/10/13 21:52:25
+flow4.log           6953    2026/10/13 21:52:53
+icon-fresh.ico      372526  2026/10/13 23:08:30
+icon-fresh.png      6103    2026/10/13 23:08:30
+icongen.exe         3049472 2026/10/13 23:13:42
+icons.json          1087    2026/10/13 19:49:06
+icons.json.part     1029    2026/10/13 19:49:06
+icons.mjs           484     2026/10/13 19:49:28
+icons2.mjs          628     2026/10/13 19:49:33
+probe-api.ps1       3035    2026/10/13 23:30:10
+probe-embed.log     817     2026/10/13 22:14:25
+probe-embed.ps1     6051    2026/10/13 22:13:34
+probe-flow.mjs      10996   2026/10/13 21:52:06
+probe-flow.ps1      3264    2026/10/13 21:49:59
+probe-reopen.mjs    20874   2026/10/13 23:49:15
+probe-reopen.ps1    3227    2026/10/13 23:32:20
+rawtest-run.log     1393    2026/10/13 21:57:12
+rawtest.ps1         3975    2026/10/13 21:56:41
+regress.txt         1025    2026/10/13 19:52:27
+regress2.txt        832     2026/10/13 19:52:36
+release-build.log   6857    2026/10/13 22:09:07
+release-build2.log  6553    2026/10/13 22:10:11
+rename-icons.mjs    2064    2026/10/13 19:49:43
+reopen-run.log      8526    2026/10/13 23:34:16
+reopen-run2.log     11878   2026/10/13 23:35:18
+reopen-run3.log     11806   2026/10/13 23:37:37
+reopen-run4.log     21772   2026/10/13 23:40:07
+reopen-run5.log     33242   2026/10/13 23:47:04
+reopen-run6.log     33468   2026/10/13 23:48:39
+reopen-run7.log     33828   2026/10/13 23:50:01
+reopen-run8.log     30752   2026/10/14 10:43:42
+repro.mjs           10304   2026/10/13 20:51:39
+repro.ps1           2963    2026/10/13 20:47:23
+smoke-final.log     3641    2026/10/13 22:01:02
+tagtest-run.log     2309    2026/10/13 21:56:06
+tagtest.ps1         7047    2026/10/13 21:55:30
+tsc.log             0       2026/10/13 21:38:48
+tsc.txt             4299    2026/10/13 19:47:07
+tsc2.log            0       2026/10/13 21:51:34
+tsc2.txt            16194   2026/10/13 19:48:49
+tsc3.txt            2309    2026/10/13 19:50:24
+tsc4.txt            140     2026/10/13 19:50:37
+tsc5.txt            0       2026/10/13 19:50:47
+verify-final.log    1174    2026/10/13 22:00:03
+verify-toast.mjs    8183    2026/10/13 21:38:42
+verify-toast.ps1    3245    2026/10/13 21:25:45
+verify.log          6090    2026/10/13 21:38:34
+verify2.log         6060    2026/10/13 21:39:09
+winres-example.json 879     2026/10/13 22:31:53
+
+
+=== .gotmp/dev? ===
+
+FullName                                                       Length LastWriteTime      
+--------                                                       ------ -------------      
+C:\Users\bisho\Desktop\bs-blog\.gotmp\bash-build.log              879 2026/10/13 22:20:54
+C:\Users\bisho\Desktop\bs-blog\.gotmp\build.txt                   398 2026/10/13 19:51:21
+C:\Users\bisho\Desktop\bs-blog\.gotmp\build2.txt                 5835 2026/10/13 19:51:49
+C:\Users\bisho\Desktop\bs-blog\.gotmp\dbdump.exe              9579520 2026/10/13 23:29:46
+C:\Users\bisho\Desktop\bs-blog\.gotmp\devcheck.log               1574 2026/10/13 20:12:46
+C:\Users\bisho\Desktop\bs-blog\.gotmp\devfinal.log               1634 2026/10/13 20:14:39
+C:\Users\bisho\Desktop\bs-blog\.gotmp\e2e.txt                     738 2026/10/13 19:52:50
+C:\Users\bisho\Desktop\bs-blog\.gotmp\favtest.syso             271360 2026/10/13 23:09:58
+C:\Users\bisho\Desktop\bs-blog\.gotmp\flow.log                   6980 2026/10/13 21:50:41
+C:\Users\bisho\Desktop\bs-blog\.gotmp\flow2.log                  6586 2026/10/13 21:51:56
+C:\Users\bisho\Desktop\bs-blog\.gotmp\flow3.log                  5917 2026/10/13 21:52:25
+C:\Users\bisho\Desktop\bs-blog\.gotmp\flow4.log                  6953 2026/10/13 21:52:53
+C:\Users\bisho\Desktop\bs-blog\.gotmp\icon-fresh.ico           372526 2026/10/13 23:08:30
+C:\Users\bisho\Desktop\bs-blog\.gotmp\icon-fresh.png             6103 2026/10/13 23:08:30
+C:\Users\bisho\Desktop\bs-blog\.gotmp\icongen.exe             3049472 2026/10/13 23:13:42
+C:\Users\bisho\Desktop\bs-blog\.gotmp\icons.json                 1087 2026/10/13 19:49:06
+C:\Users\bisho\Desktop\bs-blog\.gotmp\icons.json.part            1029 2026/10/13 19:49:06
+C:\Users\bisho\Desktop\bs-blog\.gotmp\icons.mjs                   484 2026/10/13 19:49:28
+C:\Users\bisho\Desktop\bs-blog\.gotmp\icons2.mjs                  628 2026/10/13 19:49:33
+C:\Users\bisho\Desktop\bs-blog\.gotmp\probe-api.ps1              3035 2026/10/13 23:30:10
+C:\Users\bisho\Desktop\bs-blog\.gotmp\probe-embed.log             817 2026/10/13 22:14:25
+C:\Users\bisho\Desktop\bs-blog\.gotmp\probe-embed.ps1            6051 2026/10/13 22:13:34
+C:\Users\bisho\Desktop\bs-blog\.gotmp\probe-flow.mjs            10996 2026/10/13 21:52:06
+C:\Users\bisho\Desktop\bs-blog\.gotmp\probe-flow.ps1             3264 2026/10/13 21:49:59
+C:\Users\bisho\Desktop\bs-blog\.gotmp\probe-reopen.mjs          20874 2026/10/13 23:49:15
+C:\Users\bisho\Desktop\bs-blog\.gotmp\probe-reopen.ps1           3227 2026/10/13 23:32:20
+C:\Users\bisho\Desktop\bs-blog\.gotmp\rawtest-run.log            1393 2026/10/13 21:57:12
+C:\Users\bisho\Desktop\bs-blog\.gotmp\rawtest.ps1                3975 2026/10/13 21:56:41
+C:\Users\bisho\Desktop\bs-blog\.gotmp\regress.txt                1025 2026/10/13 19:52:27
+C:\Users\bisho\Desktop\bs-blog\.gotmp\regress2.txt                832 2026/10/13 19:52:36
+C:\Users\bisho\Desktop\bs-blog\.gotmp\release-build.log          6857 2026/10/13 22:09:07
+C:\Users\bisho\Desktop\bs-blog\.gotmp\release-build2.log         6553 2026/10/13 22:10:11
+C:\Users\bisho\Desktop\bs-blog\.gotmp\rename-icons.mjs           2064 2026/10/13 19:49:43
+C:\Users\bisho\Desktop\bs-blog\.gotmp\reopen-run.log             8526 2026/10/13 23:34:16
+C:\Users\bisho\Desktop\bs-blog\.gotmp\reopen-run2.log           11878 2026/10/13 23:35:18
+C:\Users\bisho\Desktop\bs-blog\.gotmp\reopen-run3.log           11806 2026/10/13 23:37:37
+C:\Users\bisho\Desktop\bs-blog\.gotmp\reopen-run4.log           21772 2026/10/13 23:40:07
+C:\Users\bisho\Desktop\bs-blog\.gotmp\reopen-run5.log           33242 2026/10/13 23:47:04
+C:\Users\bisho\Desktop\bs-blog\.gotmp\reopen-run6.log           33468 2026/10/13 23:48:39
+C:\Users\bisho\Desktop\bs-blog\.gotmp\reopen-run7.log           33828 2026/10/13 23:50:01
+C:\Users\bisho\Desktop\bs-blog\.gotmp\reopen-run8.log           30752 2026/10/14 10:43:42
+C:\Users\bisho\Desktop\bs-blog\.gotmp\repro.mjs                 10304 2026/10/13 20:51:39
+C:\Users\bisho\Desktop\bs-blog\.gotmp\repro.ps1                  2963 2026/10/13 20:47:23
+C:\Users\bisho\Desktop\bs-blog\.gotmp\smoke-final.log            3641 2026/10/13 22:01:02
+C:\Users\bisho\Desktop\bs-blog\.gotmp\tagtest-run.log            2309 2026/10/13 21:56:06
+C:\Users\bisho\Desktop\bs-blog\.gotmp\tagtest.ps1                7047 2026/10/13 21:55:30
+C:\Users\bisho\Desktop\bs-blog\.gotmp\tsc.log                       0 2026/10/13 21:38:48
+C:\Users\bisho\Desktop\bs-blog\.gotmp\tsc.txt                    4299 2026/10/13 19:47:07
+C:\Users\bisho\Desktop\bs-blog\.gotmp\tsc2.log                      0 2026/10/13 21:51:34
+C:\Users\bisho\Desktop\bs-blog\.gotmp\tsc2.txt                  16194 2026/10/13 19:48:49
+C:\Users\bisho\Desktop\bs-blog\.gotmp\tsc3.txt                   2309 2026/10/13 19:50:24
+C:\Users\bisho\Desktop\bs-blog\.gotmp\tsc4.txt                    140 2026/10/13 19:50:37
+C:\Users\bisho\Desktop\bs-blog\.gotmp\tsc5.txt                      0 2026/10/13 19:50:47
+C:\Users\bisho\Desktop\bs-blog\.gotmp\verify-final.log           1174 2026/10/13 22:00:03
+C:\Users\bisho\Desktop\bs-blog\.gotmp\verify-toast.mjs           8183 2026/10/13 21:38:42
+C:\Users\bisho\Desktop\bs-blog\.gotmp\verify-toast.ps1           3245 2026/10/13 21:25:45
+C:\Users\bisho\Desktop\bs-blog\.gotmp\verify.log                 6090 2026/10/13 21:38:34
+C:\Users\bisho\Desktop\bs-blog\.gotmp\verify2.log                6060 2026/10/13 21:39:09
+C:\Users\bisho\Desktop\bs-blog\.gotmp\winres-example.json         879 2026/10/13 22:31:53
+C:\Users\bisho\Desktop\bs-blog\.gotmp\bin\rawtest-server.exe 25596928 2026/10/13 21:57:10
+C:\Users\bisho\Desktop\bs-blog\.gotmp\bin\tagtest-server.exe 25596928 2026/10/13 21:56:04
+C:\Users\bisho\Desktop\bs-blog\.gotmp\dbsnap\blog.db             4096 2026/10/13 20:27:39
+C:\Users\bisho\Desktop\bs-blog\.gotmp\dbsnap\blog.db-shm        32768 2026/10/13 23:26:23
+C:\Users\bisho\Desktop\bs-blog\.gotmp\dbsnap\blog.db-wal       197792 2026/10/13 21:03:21
+C:\Users\bisho\Desktop\bs-blog\.gotmp\dbsnap2\blog.db            4096 2026/10/13 23:20:19
+C:\Users\bisho\Desktop\bs-blog\.gotmp\dbsnap2\blog.db-shm       32768 2026/10/13 23:29:47
+C:\Users\bisho\Desktop\bs-blog\.gotmp\dbsnap2\blog.db-wal      243112 2026/10/13 23:23:26
+C:\Users\bisho\Desktop\bs-blog\.gotmp\embed\bs-blog.exe      20093952 2026/10/14 10:44:22
+C:\Users\bisho\Desktop\bs-blog\.gotmp\embed\stderr.log              0 2026/10/14 10:44:24
+C:\Users\bisho\Desktop\bs-blog\.gotmp\embed\stdout.log           2337 2026/10/14 10:44:26
+C:\Users\bisho\Desktop\bs-blog\.gotmp\flow\config.yaml            239 2026/10/13 21:59:46
+C:\Users\bisho\Desktop\bs-blog\.gotmp\flow\go.err                   0 2026/10/13 21:59:50
+C:\Users\bisho\Desktop\bs-blog\.gotmp\flow\go.out               13728 2026/10/13 22:00:03
+C:\Users\bisho\Desktop\bs-blog\.gotmp\flow\server.exe        25596928 2026/10/13 21:59:50
+C:\Users\bisho\Desktop\bs-blog\.gotmp\lan\blog.db                4096 2026/10/13 21:07:26
+C:\Users\bisho\Desktop\bs-blog\.gotmp\lan\blog.db-shm           32768 2026/10/13 21:07:26
+C:\Users\bisho\Desktop\bs-blog\.gotmp\lan\blog.db-wal          148352 2026/10/13 21:07:27
+C:\Users\bisho\Desktop\bs-blog\.gotmp\lan\err.log                   0 2026/10/13 21:07:26
+C:\Users\bisho\Desktop\bs-blog\.gotmp\lan\out.log                 591 2026/10/13 21:07:27
+C:\Users\bisho\Desktop\bs-blog\.gotmp\lan\serve.yaml             2659 2026/10/13 21:07:26
+C:\Users\bisho\Desktop\bs-blog\.gotmp\rawtest\b1.json             344 2026/10/13 21:57:12
+C:\Users\bisho\Desktop\bs-blog\.gotmp\rawtest\dup.json            109 2026/10/13 21:57:12
+C:\Users\bisho\Desktop\bs-blog\.gotmp\rawtest\err.log               0 2026/10/13 21:57:10
+C:\Users\bisho\Desktop\bs-blog\.gotmp\rawtest\first.json          114 2026/10/13 21:57:12
+C:\Users\bisho\Desktop\bs-blog\.gotmp\rawtest\h1.txt              114 2026/10/13 21:57:12
+C:\Users\bisho\Desktop\bs-blog\.gotmp\rawtest\out.log            1157 2026/10/13 21:57:12
+C:\Users\bisho\Desktop\bs-blog\.gotmp\rawtest\setup.json           52 2026/10/13 21:57:11
+C:\Users\bisho\Desktop\bs-blog\.gotmp\reopen\config.yaml          239 2026/10/14 10:43:03
+C:\Users\bisho\Desktop\bs-blog\.gotmp\reopen\go.err                 0 2026/10/14 10:43:14
+C:\Users\bisho\Desktop\bs-blog\.gotmp\reopen\go.out              9548 2026/10/14 10:43:39
+C:\Users\bisho\Desktop\bs-blog\.gotmp\reopen\server.exe      28015104 2026/10/14 10:43:13
+C:\Users\bisho\Desktop\bs-blog\.gotmp\repro\config.yaml           239 2026/10/13 20:51:52
+C:\Users\bisho\Desktop\bs-blog\.gotmp\repro\editor.png         219507 2026/10/13 20:51:59
+C:\Users\bisho\Desktop\bs-blog\.gotmp\repro\go.err                  0 2026/10/13 20:51:55
+C:\Users\bisho\Desktop\bs-blog\.gotmp\repro\go.out               5491 2026/10/13 20:51:58
+C:\Users\bisho\Desktop\bs-blog\.gotmp\repro\server.exe       25596928 2026/10/13 20:51:55
+C:\Users\bisho\Desktop\bs-blog\.gotmp\repro3\test-server.exe 28015104 2026/10/14 13:44:34
+C:\Users\bisho\Desktop\bs-blog\.gotmp\serve\blog.db              4096 2026/10/13 21:01:00
+C:\Users\bisho\Desktop\bs-blog\.gotmp\serve\blog.db-shm         32768 2026/10/13 21:01:00
+C:\Users\bisho\Desktop\bs-blog\.gotmp\serve\blog.db-wal        148352 2026/10/13 21:01:00
+C:\Users\bisho\Desktop\bs-blog\.gotmp\serve\err.log                 0 2026/10/13 21:00:59
+C:\Users\bisho\Desktop\bs-blog\.gotmp\serve\out.log               918 2026/10/13 21:01:00
+C:\Users\bisho\Desktop\bs-blog\.gotmp\serve\serve.yaml           2507 2026/10/13 21:00:59
+C:\Users\bisho\Desktop\bs-blog\.gotmp\suite\dev.log               819 2026/10/13 22:13:46
+C:\Users\bisho\Desktop\bs-blog\.gotmp\suite\prod.log             1344 2026/10/13 22:13:30
+C:\Users\bisho\Desktop\bs-blog\.gotmp\suite\smoke.log            3647 2026/10/13 22:13:18
+C:\Users\bisho\Desktop\bs-blog\.gotmp\suite\web.log               803 2026/10/13 22:13:24
+C:\Users\bisho\Desktop\bs-blog\.gotmp\tagtest\err.log               0 2026/10/13 21:56:04
+C:\Users\bisho\Desktop\bs-blog\.gotmp\tagtest\out.log            1503 2026/10/13 21:56:06
+C:\Users\bisho\Desktop\bs-blog\.gotmp\verify\config.yaml          239 2026/10/13 21:38:54
+C:\Users\bisho\Desktop\bs-blog\.gotmp\verify\go.err                 0 2026/10/13 21:38:58
+C:\Users\bisho\Desktop\bs-blog\.gotmp\verify\go.out              9582 2026/10/13 21:39:09
+C:\Users\bisho\Desktop\bs-blog\.gotmp\verify\server.exe      25596928 2026/10/13 21:38:58
+
+
+[stderr]
+warning: in the working copy of 'src/components/admin/DataTable.vue', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/views/admin/PostEditorView.vue', LF will be replaced by CRLF the next time Git touches it

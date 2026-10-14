@@ -70,3 +70,6 @@ backend/release/
 # resource object out of a Linux link.
 backend/winres/icon.png
 backend/cmd/server/*.syso
+
+
+graphflow-out/

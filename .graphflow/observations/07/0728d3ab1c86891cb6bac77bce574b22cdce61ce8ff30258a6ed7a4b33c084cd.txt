@@ -1,0 +1,146 @@
+=== -wal files ===
+    164832 10-14 11:12:06  C:\Users\bisho\Desktop\bs-blog\.gotmp\dbdump\copy\blog.db-wal
+    197792 10-13 21:03:21  C:\Users\bisho\Desktop\bs-blog\.gotmp\dbsnap\blog.db-wal
+    243112 10-13 23:23:26  C:\Users\bisho\Desktop\bs-blog\.gotmp\dbsnap2\blog.db-wal
+    148352 10-14 10:44:25  C:\Users\bisho\Desktop\bs-blog\.gotmp\embed\data\blog.db-wal
+    185432 10-13 21:59:58  C:\Users\bisho\Desktop\bs-blog\.gotmp\flow\data\blog.db-wal
+    206032 10-14 14:57:08  C:\Users\bisho\Desktop\bs-blog\.gotmp\flowdiag\data\blog.db-wal
+    140112 10-14 14:51:12  C:\Users\bisho\Desktop\bs-blog\.gotmp\flowfix\data\blog.db-wal
+    140112 10-14 15:04:33  C:\Users\bisho\Desktop\bs-blog\.gotmp\hittest\data\blog.db-wal
+    148352 10-13 21:07:27  C:\Users\bisho\Desktop\bs-blog\.gotmp\lan\blog.db-wal
+    226632 10-13 21:57:12  C:\Users\bisho\Desktop\bs-blog\.gotmp\rawtest\data\blog.db-wal
+    193672 10-14 10:43:19  C:\Users\bisho\Desktop\bs-blog\.gotmp\reopen\data\blog.db-wal
+    156592 10-13 20:51:57  C:\Users\bisho\Desktop\bs-blog\.gotmp\repro\data\blog.db-wal
+    222512 10-14 13:44:46  C:\Users\bisho\Desktop\bs-blog\.gotmp\repro3\data\blog.db-wal
+    148352 10-13 21:01:00  C:\Users\bisho\Desktop\bs-blog\.gotmp\serve\blog.db-wal
+    346112 10-13 21:56:06  C:\Users\bisho\Desktop\bs-blog\.gotmp\tagtest\data\blog.db-wal
+    304912 10-14 10:44:35  C:\Users\bisho\Desktop\bs-blog\.smoke\data\blog.db-wal
+    164832 10-14 11:12:06  C:\Users\bisho\Desktop\bs-blog_\data\blog.db-wal
+=== every bs-blog.exe / .lnk / prefetch ===
+  20093952 10-14 10:44:22  C:\Users\bisho\AppData\Local\pnpm\store\v11\projects\39a9afc4afc1c1a85ef88c5d6e33b6c5\.gotmp\edge\bs-blog.exe
+  20093952 10-14 10:44:22  C:\Users\bisho\AppData\Local\pnpm\store\v11\projects\39a9afc4afc1c1a85ef88c5d6e33b6c5\.gotmp\embed\bs-blog.exe
+  20093952 10-14 10:44:22  C:\Users\bisho\AppData\Local\pnpm\store\v11\projects\39a9afc4afc1c1a85ef88c5d6e33b6c5\backend\release\bs-blog.exe
+       543 10-13 18:47:44  C:\Users\bisho\AppData\Roaming\Microsoft\Windows\Recent\bs-blog.lnk
+       492 10-13 21:11:15  C:\Users\bisho\AppData\Roaming\Microsoft\Windows\Recent\bs-blog_.lnk
+       527 10-14 12:42:39  C:\Users\bisho\AppData\Roaming\Microsoft\Windows\Recent\bs-blog_release.lnk
+       551 10-14 12:42:54  C:\Users\bisho\AppData\Roaming\Microsoft\Windows\Recent\bs-blog_release.zip.lnk
+  20093952 10-14 10:44:22  C:\Users\bisho\Desktop\bs-blog\.gotmp\edge\bs-blog.exe
+  20093952 10-14 10:44:22  C:\Users\bisho\Desktop\bs-blog\.gotmp\embed\bs-blog.exe
+  20105728 10-14 15:19:42  C:\Users\bisho\Desktop\bs-blog\backend\release\bs-blog.exe
+  20093952 10-14 10:44:22  C:\Users\bisho\Desktop\bs-blog_\bs-blog.exe
+LNK: C:\Users\bisho\Desktop\3dsmax.lnk
+LNK: C:\Users\bisho\Desktop\Adobe After Effects 2025.lnk
+LNK: C:\Users\bisho\Desktop\Adobe Illustrator 2025.lnk
+LNK: C:\Users\bisho\Desktop\Adobe Photoshop 2025.lnk
+LNK: C:\Users\bisho\Desktop\Animeko.lnk
+LNK: C:\Users\bisho\Desktop\Apifox.lnk
+LNK: C:\Users\bisho\Desktop\aseprite.lnk
+LNK: C:\Users\bisho\Desktop\Blender 4.4.lnk
+LNK: C:\Users\bisho\Desktop\FL Studio 2025.lnk
+LNK: C:\Users\bisho\Desktop\HaKa Comic.lnk
+LNK: C:\Users\bisho\Desktop\HBuilder X.lnk
+LNK: C:\Users\bisho\Desktop\kazumi.lnk
+LNK: C:\Users\bisho\Desktop\KOOK.lnk
+LNK: C:\Users\bisho\Desktop\Microsoft Edge.lnk
+LNK: C:\Users\bisho\Desktop\Motrix.lnk
+LNK: C:\Users\bisho\Desktop\Obsidian.lnk
+LNK: C:\Users\bisho\Desktop\OCS Desktop.lnk
+LNK: C:\Users\bisho\Desktop\Oopz.lnk
+LNK: C:\Users\bisho\Desktop\QQ.lnk
+LNK: C:\Users\bisho\Desktop\Shinkuro.lnk
+LNK: C:\Users\bisho\Desktop\texstudio.lnk
+LNK: C:\Users\bisho\Desktop\Unreal Engine.lnk
+LNK: C:\Users\bisho\Desktop\UU远程.lnk
+LNK: C:\Users\bisho\Desktop\Visual Studio Code.lnk
+LNK: C:\Users\bisho\Desktop\Visual Studio Installer.lnk
+LNK: C:\Users\bisho\Desktop\VMware Workstation Pro.lnk
+LNK: C:\Users\bisho\Desktop\VOCALOID6 Shared Editor.lnk
+LNK: C:\Users\bisho\Desktop\WinCDEmu.lnk
+LNK: C:\Users\bisho\Desktop\WinHex.lnk
+LNK: C:\Users\bisho\Desktop\x64dbg.lnk
+LNK: C:\Users\bisho\Desktop\Zeal.lnk
+LNK: C:\Users\bisho\Desktop\夸克网盘.lnk
+LNK: C:\Users\bisho\Desktop\百度网盘.lnk
+LNK: C:\Users\bisho\Desktop\米哈游启动器.lnk
+LNK: C:\Users\bisho\Desktop\绝区零.lnk
+LNK: C:\Users\bisho\Desktop\网易云音乐.lnk
+LNK: C:\Users\bisho\Desktop\迅雷.lnk
+LNK: C:\Users\bisho\Desktop\鸣潮.lnk
+LNK: C:\Users\bisho\Desktop\desktop-inside\3ds Max 2025.lnk
+LNK: C:\Users\bisho\Desktop\desktop-inside\AntSword.lnk
+LNK: C:\Users\bisho\Desktop\desktop-inside\Bandizip.lnk
+LNK: C:\Users\bisho\Desktop\desktop-inside\BurpSuite-cn.lnk
+LNK: C:\Users\bisho\Desktop\desktop-inside\Cobalt Strike 4.3 cn.lnk
+LNK: C:\Users\bisho\Desktop\desktop-inside\CrystalDiskInfo MSI Mei Mihoshi.lnk
+LNK: C:\Users\bisho\Desktop\desktop-inside\Everything.lnk
+LNK: C:\Users\bisho\Desktop\desktop-inside\Goby.lnk
+LNK: C:\Users\bisho\Desktop\desktop-inside\LibreOffice 25.8.lnk
+LNK: C:\Users\bisho\Desktop\desktop-inside\LLC_MOD_Toolbox.lnk
+LNK: C:\Users\bisho\Desktop\desktop-inside\MPC-BE x64.lnk
+LNK: C:\Users\bisho\Desktop\desktop-inside\MToolBox.lnk
+LNK: C:\Users\bisho\Desktop\desktop-inside\MyCard.lnk
+LNK: C:\Users\bisho\Desktop\desktop-inside\OBS Studio.lnk
+LNK: C:\Users\bisho\Desktop\desktop-inside\Paranoia File & Text Encryption.lnk
+LNK: C:\Users\bisho\Desktop\desktop-inside\QQ音乐.lnk
+LNK: C:\Users\bisho\Desktop\desktop-inside\Razer Axon.lnk
+LNK: C:\Users\bisho\Desktop\desktop-inside\Razer Cortex.lnk
+LNK: C:\Users\bisho\Desktop\desktop-inside\SakuraFrp 启动器.lnk
+LNK: C:\Users\bisho\Desktop\desktop-inside\Steam.lnk
+LNK: C:\Users\bisho\Desktop\desktop-inside\Synido Tempo KEY K25.lnk
+LNK: C:\Users\bisho\Desktop\desktop-inside\Telegram.lnk
+LNK: C:\Users\bisho\Desktop\desktop-inside\向日葵远程控制.lnk
+LNK: C:\Users\bisho\Desktop\desktop-inside\火绒安全软件.lnk
+LNK: C:\Users\bisho\Desktop\desktop-inside\腾讯会议.lnk
+LNK: C:\Users\bisho\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Administrative Tools.lnk
+LNK: C:\Users\bisho\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Apifox.lnk
+LNK: C:\Users\bisho\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\File Explorer.lnk
+LNK: C:\Users\bisho\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Motrix.lnk
+LNK: C:\Users\bisho\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Nahimic Companion.lnk
+LNK: C:\Users\bisho\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Obsidian.lnk
+LNK: C:\Users\bisho\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\OCS Desktop.lnk
+LNK: C:\Users\bisho\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Shinkuro.lnk
+LNK: C:\Users\bisho\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\UU远程.lnk
+LNK: C:\Users\bisho\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\夸克网盘.lnk
+LNK: C:\Users\bisho\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Accessibility\LiveCaptions.lnk
+LNK: C:\Users\bisho\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Accessibility\Magnify.lnk
+LNK: C:\Users\bisho\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Accessibility\Narrator.lnk
+LNK: C:\Users\bisho\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Accessibility\On-Screen Keyboard.lnk
+LNK: C:\Users\bisho\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Accessibility\VoiceAccess.lnk
+LNK: C:\Users\bisho\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Blender\Blender 4.4.lnk
+LNK: C:\Users\bisho\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Image-Line\FL Studio 2025.lnk
+LNK: C:\Users\bisho\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Image-Line\FL Studio Tutorial.lnk
+LNK: C:\Users\bisho\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Image-Line\More....lnk
+LNK: C:\Users\bisho\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\KOOK\KOOK.lnk
+LNK: C:\Users\bisho\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\MSYS2\MSYS2 CLANG64.lnk
+LNK: C:\Users\bisho\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\MSYS2\MSYS2 CLANGARM64.lnk
+LNK: C:\Users\bisho\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\MSYS2\MSYS2 MINGW64.lnk
+LNK: C:\Users\bisho\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\MSYS2\MSYS2 MSYS.lnk
+LNK: C:\Users\bisho\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\MSYS2\MSYS2 UCRT64.lnk
+LNK: C:\Users\bisho\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\PrivaZer\卸载 PrivaZer.lnk
+LNK: C:\Users\bisho\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Python 3.12\IDLE (Python 3.12 64-bit).lnk
+LNK: C:\Users\bisho\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Python 3.12\Python 3.12 (64-bit).lnk
+LNK: C:\Users\bisho\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Python 3.12\Python 3.12 Manuals (64-bit).lnk
+LNK: C:\Users\bisho\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Python 3.12\Python 3.12 Module Docs (64-bit).lnk
+LNK: C:\Users\bisho\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Steam\Steam.lnk
+LNK: C:\Users\bisho\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\System Tools\Command Prompt.lnk
+LNK: C:\Users\bisho\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\System Tools\Control Panel.lnk
+LNK: C:\Users\bisho\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\System Tools\Run.lnk
+LNK: C:\Users\bisho\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\TeX Live 2025\DVIOUT DVI viewer.lnk
+LNK: C:\Users\bisho\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\TeX Live 2025\TeX Live command-line.lnk
+LNK: C:\Users\bisho\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\TeX Live 2025\TeX Live documentation.lnk
+LNK: C:\Users\bisho\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\TeX Live 2025\TeXworks editor.lnk
+LNK: C:\Users\bisho\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\TeX Live 2025\TLShell TeX Live Manager.lnk
+LNK: C:\Users\bisho\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\TeX Live 2025\Uninstall TeX Live.lnk
+LNK: C:\Users\bisho\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Visual Studio Code\Visual Studio Code.lnk
+LNK: C:\Users\bisho\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Windows PowerShell\Windows PowerShell (x86).lnk
+LNK: C:\Users\bisho\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Windows PowerShell\Windows PowerShell.lnk
+LNK: C:\Users\bisho\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\百度网盘\卸载百度网盘.lnk
+LNK: C:\Users\bisho\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\百度网盘\百度网盘.lnk
+LNK: C:\Users\bisho\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\米哈游启动器\卸载 米哈游启动器.lnk
+LNK: C:\Users\bisho\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\米哈游启动器\米哈游启动器.lnk
+LNK: C:\Users\bisho\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\米哈游启动器\绝区零.lnk
+LNK: C:\Users\bisho\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\迅雷软件\迅雷\卸载迅雷.lnk
+LNK: C:\Users\bisho\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\迅雷软件\迅雷\迅雷.lnk
+LNK: C:\Users\bisho\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\鸣潮\Uninstall 鸣潮.lnk
+LNK: C:\Users\bisho\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\鸣潮\鸣潮.lnk
+[status: completed, exit code: 1]

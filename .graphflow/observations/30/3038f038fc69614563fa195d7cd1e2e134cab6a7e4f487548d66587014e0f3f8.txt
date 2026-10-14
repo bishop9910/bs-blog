@@ -1,0 +1,256 @@
+=== src/api/http.ts ===
+   1: /**
+   2:  * Minimal typed fetch wrapper.
+   3:  *
+   4:  * Deliberately dependency-free: the whole HTTP surface this app needs is
+   5:  * JSON requests, bearer-token auth, form uploads and consistent errors.
+   6:  */
+   7: 
+   8: export const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? '/api/v1').replace(/\/$/, '')
+   9: 
+  10: const TOKEN_KEY = '[REDACTED:credential]'
+  11: 
+  12: /* -------------------------------------------------------------------------- */
+  13: /* Token storage                                                              */
+  14: /* -------------------------------------------------------------------------- */
+  15: 
+  16: export function getToken(): string | null {
+  17:   try {
+  18:     return localStorage.getItem(TOKEN_KEY)
+  19:   } catch {
+  20:     return null
+  21:   }
+  22: }
+  23: 
+  24: export function setToken(token: string | null): void {
+  25:   try {
+  26:     if (token === null) localStorage.removeItem(TOKEN_KEY)
+  27:     else localStorage.setItem(TOKEN_KEY, token)
+  28:   } catch {
+  29:     /* storage unavailable (private mode) 鈥?session stays in memory only */
+  30:   }
+  31: }
+  32: 
+  33: /* -------------------------------------------------------------------------- */
+  34: /* Errors                                                                     */
+  35: /* -------------------------------------------------------------------------- */
+  36: 
+  37: export interface ApiErrorBody {
+  38:   code?: number | string
+  39:   reason?: string
+  40:   message?: string
+  41:   metadata?: Record<string, string>
+  42: }
+  43: 
+  44: export class ApiError extends Error {
+  45:   readonly status: number
+  46:   readonly code: number | string
+  47:   readonly reason: string
+  48:   readonly details?: Record<string, string>
+  49: 
+  50:   constructor(status: number, body: ApiErrorBody) {
+  51:     super(body.message || body.reason || `Request failed with status ${status}`)
+  52:     this.name = 'ApiError'
+  53:     this.status = status
+  54:     this.code = body.code ?? status
+  55:     this.reason = body.reason ?? ''
+  56:     this.details = body.metadata
+  57:   }
+  58: 
+  59:   get isUnauthorized(): boolean {
+  60:     return this.status === 401
+  61:   }
+  62: 
+  63:   get isNetwork(): boolean {
+  64:     return this.status === 0
+  65:   }
+  66: }
+  67: 
+  68: /* -------------------------------------------------------------------------- */
+  69: /* Core                                                                       */
+  70: /* -------------------------------------------------------------------------- */
+  71: 
+  72: type QueryValue = string | number | boolean | undefined | null
+  73: 
+  74: export function buildQuery(params: Record<string, QueryValue>): string {
+  75:   const search = new URLSearchParams()
+  76:   for (const [key, value] of Object.entries(params)) {
+  77:     if (value === undefined || value === null || value === '') continue
+  78:     search.set(key, String(value))
+  79:   }
+  80:   const qs = search.toString()
+  81:   return qs ? `?${qs}` : ''
+  82: }
+  83: 
+  84: interface RequestOptions {
+  85:   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
+  86:   /** Serialised as JSON unless it is already a BodyInit. */
+  87:   body?: unknown
+  88:   query?: Record<string, QueryValue>
+  89:   /** Send without the Authorization header. */
+  90:   anonymous?: boolean
+  91:   signal?: AbortSignal
+  92: }
+  93: 
+  94: /** Called on any 401 so the app can bounce to the login screen. */
+  95: let onUnauthorized: (() => void) | null = null
+  96: 
+  97: export function setUnauthorizedHandler(handler: (() => void) | null): void {
+  98:   onUnauthorized = handler
+  99: }
+ 100: 
+ 101: export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+ 102:   const { method = 'GET', body, query, anonymous = false, signal } = options
+ 103: 
+ 104:   const headers = new Headers({ Accept: 'application/json' })
+ 105:   const isForm = body instanceof FormData
+ 106: 
+ 107:   if (body !== undefined && !isForm) headers.set('Content-Type', 'application/json')
+ 108: 
+ 109:   if (!anonymous) {
+ 110:     const token = getToken()
+ 111:     if (token) headers.set('Authorization', `Bearer ${token}`)
+ 112:   }
+ 113: 
+ 114:   let response: Response
+ 115:   try {
+ 116:     response = await fetch(`${API_BASE}${path}${query ? buildQuery(query) : ''}`, {
+ 117:       method,
+ 118:       headers,
+ 119:       body: body === undefined ? undefined : isForm ? (body as FormData) : JSON.stringify(body),
+ 120:       signal,
+ 121:     })
+ 122:   } catch (cause) {
+ 123:     if (cause instanceof DOMException && cause.name === 'AbortError') throw cause
+ 124:     throw new ApiError(0, { message: '鏃犳硶杩炴帴鍒版湇鍔″櫒锛岃妫€鏌ュ悗绔槸鍚﹁繍琛? })
+ 125:   }
+ 126: 
+ 127:   if (response.status === 204) return undefined as T
+ 128: 
+ 129:   const text = await response.text()
+ 130:   let payload: unknown = undefined
+ 131:   if (text) {
+ 132:     try {
+ 133:       payload = JSON.parse(text)
+ 134:     } catch {
+ 135:       payload = { message: text.slice(0, 300) }
+ 136:     }
+ 137:   }
+ 138: 
+ 139:   if (!response.ok) {
+ 140:     if (response.status === 401 && !anonymous) {
+ 141:       setToken(null)
+ 142:       onUnauthorized?.()
+ 143:     }
+ 144:     throw new ApiError(response.status, (payload ?? {}) as ApiErrorBody)
+ 145:   }
+ 146: 
+ 147:   return payload as T
+ 148: }
+ 149: 
+ 150: /* -------------------------------------------------------------------------- */
+ 151: /* Convenience helpers                                                        */
+ 152: /* -------------------------------------------------------------------------- */
+ 153: 
+ 154: export const http = {
+ 155:   get: <T>(path: string, query?: Record<string, QueryValue>, signal?: AbortSignal) =>
+ 156:     request<T>(path, { method: 'GET', query, signal }),
+ 157:   post: <T>(path: string, body?: unknown) => request<T>(path, { method: 'POST', body }),
+ 158:   put: <T>(path: string, body?: unknown) => request<T>(path, { method: 'PUT', body }),
+ 159:   patch: <T>(path: string, body?: unknown) => request<T>(path, { method: 'PATCH', body }),
+ 160:   delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
+ 161:   upload: <T>(path: string, form: FormData) => request<T>(path, { method: 'POST', body: form }),
+ 162: }
+
+=== src/api/posts.ts ===
+   1: import { http } from '@/api/http'
+   2: import type {
+   3:   ArchiveYear,
+   4:   Paginated,
+   5:   Post,
+   6:   PostDetail,
+   7:   PostInput,
+   8:   PostQuery,
+   9:   PostSummary,
+  10:   Tag,
+  11: } from '@/types/blog'
+  12: 
+  13: function queryOf(q: PostQuery = {}): Record<string, string | number | undefined> {
+  14:   return {
+  15:     page: q.page,
+  16:     pageSize: q.pageSize,
+  17:     status: q.status === 'all' ? undefined : q.status,
+  18:     tag: q.tag,
+  19:     keyword: q.keyword,
+  20:     sort: q.sort,
+  21:     order: q.order,
+  22:   }
+  23: }
+  24: 
+  25: /* -------------------------------------------------------------------------- */
+  26: /* Public                                                                     */
+  27: /* -------------------------------------------------------------------------- */
+  28: 
+  29: /** Published posts only. */
+  30: export function listPublished(q: PostQuery = {}): Promise<Paginated<PostSummary>> {
+  31:   return http.get<Paginated<PostSummary>>('/posts', queryOf(q))
+  32: }
+  33: 
+  34: export function getPublished(slug: string): Promise<PostDetail> {
+  35:   return http.get<PostDetail>(`/posts/${encodeURIComponent(slug)}`)
+  36: }
+  37: 
+  38: /** Published posts grouped by year 鈫?month. */
+  39: export function getArchive(): Promise<{ years: ArchiveYear[] }> {
+  40:   return http.get<{ years: ArchiveYear[] }>('/archive')
+  41: }
+  42: 
+  43: export function listTags(): Promise<{ tags: Tag[] }> {
+  44:   return http.get<{ tags: Tag[] }>('/tags')
+  45: }
+  46: 
+  47: /* -------------------------------------------------------------------------- */
+  48: /* Admin                                                                      */
+  49: /* -------------------------------------------------------------------------- */
+  50: 
+  51: /** Drafts and published posts alike. */
+  52: export function listAdminPosts(q: PostQuery = {}): Promise<Paginated<PostSummary>> {
+  53:   return http.get<Paginated<PostSummary>>('/admin/posts', queryOf(q))
+  54: }
+  55: 
+  56: export function getAdminPost(id: number): Promise<Post> {
+  57:   return http.get<Post>(`/admin/posts/${id}`)
+  58: }
+  59: 
+  60: export function createPost(input: PostInput): Promise<Post> {
+  61:   return http.post<Post>('/admin/posts', input)
+  62: }
+  63: 
+  64: export function updatePost(id: number, input: PostInput): Promise<Post> {
+  65:   return http.put<Post>(`/admin/posts/${id}`, input)
+  66: }
+  67: 
+  68: export function deletePost(id: number): Promise<void> {
+  69:   return http.delete<void>(`/admin/posts/${id}`)
+  70: }
+  71: 
+  72: /** draft -> published, stamping publishedAt on first publish. */
+  73: export function publishPost(id: number): Promise<Post> {
+  74:   return http.post<Post>(`/admin/posts/${id}/publish`)
+  75: }
+  76: 
+  77: /** published -> draft, keeping publishedAt for a later re-publish. */
+  78: export function unpublishPost(id: number): Promise<Post> {
+  79:   return http.post<Post>(`/admin/posts/${id}/unpublish`)
+  80: }
+  81: 
+  82: /** Slug preview + uniqueness check for the editor's slug field. */
+  83: export function checkSlug(
+  84:   slug: string,
+  85:   excludeId?: number,
+  86: ): Promise<{ slug: string; available: boolean }> {
+  87:   return http.get<{ slug: string; available: boolean }>('/admin/slug', {
+  88:     slug,
+  89:     excludeId,
+  90:   })
+  91: }

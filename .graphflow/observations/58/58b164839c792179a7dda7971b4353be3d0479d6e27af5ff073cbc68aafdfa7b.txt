@@ -1,0 +1,256 @@
+=== 121-230 (payload/save/togglePublish/remove) ===
+ 121: function payload(): PostInput {
+ 122:   return {
+ 123:     title: form.title.trim(),
+ 124:     slug: form.slug.trim() || undefined,
+ 125:     summary: form.summary.trim(),
+ 126:     coverUrl: form.coverUrl.trim(),
+ 127:     contentHtml: form.contentHtml,
+ 128:     contentJson: form.contentJson,
+ 129:     tagNames: form.tagNames,
+ 130:     visibility: form.visibility,
+ 131:     metaTitle: form.metaTitle.trim(),
+ 132:     metaDescription: form.metaDescription.trim(),
+ 133:   }
+ 134: }
+ 135: 
+ 136: async function save(options: { silent?: boolean } = {}): Promise<boolean> {
+ 137:   if (!form.title.trim()) {
+ 138:     message.warning('鏍囬涓嶈兘涓虹┖')
+ 139:     return false
+ 140:   }
+ 141:   if (slugState.value === 'taken') {
+ 142:     message.warning('杩欎釜鍦板潃宸茶鍗犵敤锛屾崲涓€涓啀淇濆瓨')
+ 143:     return false
+ 144:   }
+ 145: 
+ 146:   saving.value = true
+ 147:   try {
+ 148:     if (isNew.value) {
+ 149:       const created = await createPost(payload())
+ 150:       applyingForm = true
+ 151:       postId.value = created.id
+ 152:       status.value = created.status
+ 153:       form.slug = created.slug
+ 154:       slugState.value = 'ok'
+ 155:       applyingForm = false
+ 156:       dirty.value = false
+ 157:       // Replace so "back" leaves the editor instead of returning to a blank form.
+ 158:       await router.replace({ name: 'admin-post-edit', params: { id: String(created.id) } })
+ 159:       if (!options.silent) message.success('鑽夌宸蹭繚瀛?)
+ 160:     } else {
+ 161:       const updated = await updatePost(postId.value, payload())
+ 162:       applyingForm = true
+ 163:       status.value = updated.status
+ 164:       form.slug = updated.slug
+ 165:       slugState.value = 'ok'
+ 166:       applyingForm = false
+ 167:       dirty.value = false
+ 168:       if (!options.silent) message.success('宸蹭繚瀛?)
+ 169:     }
+ 170:     return true
+ 171:   } catch (caught) {
+ 172:     message.error(caught instanceof Error ? caught.message : '淇濆瓨澶辫触')
+ 173:     return false
+ 174:   } finally {
+ 175:     saving.value = false
+ 176:   }
+ 177: }
+ 178: 
+ 179: async function togglePublish() {
+ 180:   if (isNew.value || dirty.value) {
+ 181:     const ok = await save({ silent: true })
+ 182:     if (!ok) return
+ 183:   }
+ 184:   publishing.value = true
+ 185:   try {
+ 186:     const updated = isPublished.value
+ 187:       ? await unpublishPost(postId.value)
+ 188:       : await publishPost(postId.value)
+ 189:     status.value = updated.status
+ 190:     // Report the status the server actually stored. Reading isPublished here
+ 191:     // would be a read-after-write of the line above, inverting the message.
+ 192:     message.success(updated.status === 'published' ? '宸插彂甯? : '宸茶浆涓鸿崏绋?)
+ 193:   } catch (caught) {
+ 194:     message.error(caught instanceof Error ? caught.message : '鎿嶄綔澶辫触')
+ 195:   } finally {
+ 196:     publishing.value = false
+ 197:   }
+ 198: }
+ 199: 
+ 200: async function remove() {
+ 201:   if (isNew.value) {
+ 202:     void router.push({ name: 'admin-posts' })
+ 203:     return
+ 204:   }
+ 205:   try {
+ 206:     await deletePost(postId.value)
+ 207:     message.success('宸插垹闄?)
+ 208:     void router.push({ name: 'admin-posts' })
+ 209:   } catch (caught) {
+ 210:     message.error(caught instanceof Error ? caught.message : '鍒犻櫎澶辫触')
+ 211:   }
+ 212: }
+ 213: 
+ 214: function preview() {
+ 215:   if (!form.slug.trim()) {
+ 216:     message.warning('鍏堜繚瀛樹竴娆℃墠鏈夊彲棰勮鐨勫湴鍧€')
+ 217:     return
+ 218:   }
+ 219:   window.open(router.resolve({ name: 'post', params: { slug: form.slug } }).href, '_blank')
+ 220: }
+ 221: 
+ 222: /** Blank the form; used when the editor is pointed at a brand-new post. */
+ 223: function resetForm() {
+ 224:   applyingForm = true
+ 225:   form.title = ''
+ 226:   form.slug = ''
+ 227:   form.summary = ''
+ 228:   form.coverUrl = ''
+ 229:   form.contentHtml = ''
+ 230:   form.contentJson = '{}'
+
+=== 323-465 (template) ===
+ 323: <template>
+ 324:   <div class="editor">
+ 325:     <header class="editor__bar">
+ 326:       <div class="editor__ident">
+ 327:         <NInput
+ 328:           v-model:value="form.title"
+ 329:           class="editor__title"
+ 330:           placeholder="鏍囬"
+ 331:           size="large"
+ 332:         />
+ 333:         <span class="editor__status" :class="{ 'is-live': isPublished }">
+ 334:           {{ isPublished ? '宸插彂甯? : '鑽夌' }}
+ 335:         </span>
+ 336:       </div>
+ 337: 
+ 338:       <div class="editor__actions">
+ 339:         <span class="editor__count">{{ words }} 瀛?路 绾?{{ minutes }} 鍒嗛挓</span>
+ 340: 
+ 341:         <NButton size="small" secondary :disabled="!form.slug" @click="preview">
+ 342:           <template #icon><PhArrowSquareOut :size="16" /></template>
+ 343:           棰勮
+ 344:         </NButton>
+ 345: 
+ 346:         <NButton size="small" secondary :loading="saving" @click="save()">
+ 347:           <template #icon><PhFloppyDisk :size="16" /></template>
+ 348:           淇濆瓨
+ 349:         </NButton>
+ 350: 
+ 351:         <NButton
+ 352:           size="small"
+ 353:           :type="isPublished ? 'warning' : 'primary'"
+ 354:           :loading="publishing"
+ 355:           @click="togglePublish"
+ 356:         >
+ 357:           <template #icon>
+ 358:             <component :is="isPublished ? PhXCircle : PhCheckCircle" :size="16" />
+ 359:           </template>
+ 360:           {{ isPublished ? '杞崏绋? : '鍙戝竷' }}
+ 361:         </NButton>
+ 362: 
+ 363:         <NPopconfirm @positive-click="remove">
+ 364:           <template #trigger>
+ 365:             <NButton size="small" quaternary type="error" :title="isNew ? '鏀惧純' : '鍒犻櫎'">
+ 366:               <template #icon><PhTrash :size="16" /></template>
+ 367:             </NButton>
+ 368:           </template>
+ 369:           {{ isNew ? '鏀惧純杩欑瘒鑽夌?' : '鍒犻櫎鍚庢棤娉曟仮澶嶏紝纭畾鍚?' }}
+ 370:         </NPopconfirm>
+ 371:       </div>
+ 372:     </header>
+ 373: 
+ 374:     <div v-if="loading" class="editor__loading">姝ｅ湪鍔犺浇鈥?/div>
+ 375: 
+ 376:     <div v-else class="editor__body">
+ 377:       <div class="editor__main">
+ 378:         <RichTextEditor
+ 379:           v-model="form.contentHtml"
+ 380:           min-height="540px"
+ 381:           placeholder="浠庤繖閲屽紑濮嬪啓鈥?
+ 382:           @update:json="(json) => (form.contentJson = JSON.stringify(json))"
+ 383:         />
+ 384:       </div>
+ 385: 
+ 386:       <aside class="editor__side">
+ 387:         <section class="panel">
+ 388:           <h2 class="panel__title">鍙戝竷</h2>
+ 389: 
+ 390:           <label class="field">
+ 391:             <span class="field__label">鍙鎬?/span>
+ 392:             <NSelect
+ 393:               v-model:value="form.visibility"
+ 394:               :options="[
+ 395:                 { label: '鍏紑', value: 'public' },
+ 396:                 { label: '浠呰嚜宸?, value: 'private' },
+ 397:               ]"
+ 398:             />
+ 399:           </label>
+ 400: 
+ 401:           <label class="field">
+ 402:             <span class="field__label">鍦板潃</span>
+ 403:             <NInput
+ 404:               v-model:value="form.slug"
+ 405:               placeholder="post-slug"
+ 406:               @input="onSlugInput"
+ 407:             />
+ 408:             <span class="field__hint" :class="`is-${slugState}`">{{ slugHint }}</span>
+ 409:           </label>
+ 410: 
+ 411:           <label class="field">
+ 412:             <span class="field__label">鏍囩</span>
+ 413:             <NSelect
+ 414:               v-model:value="form.tagNames"
+ 415:               multiple
+ 416:               filterable
+ 417:               tag
+ 418:               :options="tagOptions"
+ 419:               placeholder="鍥炶溅鍒涘缓鏂版爣绛?
+ 420:             />
+ 421:           </label>
+ 422: 
+ 423:           <label class="field">
+ 424:             <span class="field__label">鎽樿</span>
+ 425:             <NInput
+ 426:               v-model:value="form.summary"
+ 427:               type="textarea"
+ 428:               :autosize="{ minRows: 3, maxRows: 6 }"
+ 429:               placeholder="鐣欑┖浼氳嚜鍔ㄤ粠姝ｆ枃鎴彇"
+ 430:             />
+ 431:           </label>
+ 432:         </section>
+ 433: 
+ 434:         <section class="panel">
+ 435:           <h2 class="panel__title">灏侀潰</h2>
+ 436:           <label class="field">
+ 437:             <span class="field__label">鍥剧墖鍦板潃</span>
+ 438:             <NInput v-model:value="form.coverUrl" placeholder="/uploads/鈥?鎴栧閮ㄩ摼鎺? />
+ 439:           </label>
+ 440:           <div v-if="form.coverUrl" class="cover">
+ 441:             <img :src="form.coverUrl" alt="灏侀潰棰勮" />
+ 442:           </div>
+ 443:           <p class="panel__hint">鍦ㄣ€屽獟浣撱€嶉〉涓婁紶鍥剧墖鍚庯紝鎶婂湴鍧€澶嶅埗鍒拌繖閲屻€?/p>
+ 444:         </section>
+ 445: 
+ 446:         <section class="panel">
+ 447:           <h2 class="panel__title">SEO</h2>
+ 448:           <label class="field">
+ 449:             <span class="field__label">椤甸潰鏍囬</span>
+ 450:             <NInput v-model:value="form.metaTitle" placeholder="鐣欑┖鍒欑敤鏂囩珷鏍囬" />
+ 451:           </label>
+ 452:           <label class="field">
+ 453:             <span class="field__label">椤甸潰鎻忚堪</span>
+ 454:             <NInput
+ 455:               v-model:value="form.metaDescription"
+ 456:               type="textarea"
+ 457:               :autosize="{ minRows: 2, maxRows: 4 }"
+ 458:               placeholder="鎼滅储缁撴灉鐨勬憳瑕佹枃瀛?
+ 459:             />
+ 460:           </label>
+ 461:         </section>
+ 462:       </aside>
+ 463:     </div>
+ 464:   </div>
+ 465: </template>
