@@ -71,5 +71,3 @@ backend/release/
 backend/winres/icon.png
 backend/cmd/server/*.syso
 
-
-graphflow-out/
