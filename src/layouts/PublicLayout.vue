@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted } from 'vue'
+import AmbientWeather from '@/components/visual/AmbientWeather.vue'
 import CursorGlow from '@/components/visual/CursorGlow.vue'
 import ShaderBackdrop from '@/components/visual/ShaderBackdrop.vue'
 import SiteFooter from '@/components/SiteFooter.vue'
@@ -26,6 +27,7 @@ onBeforeUnmount(() => {
     <a class="skip-link" href="#main">跳到正文</a>
 
     <ShaderBackdrop class="shell__backdrop" :intensity="0.75" />
+    <AmbientWeather />
     <CursorGlow />
 
     <SiteHeader />

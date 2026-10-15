@@ -15,6 +15,17 @@ const maxCount = computed(() => Math.max(1, ...tags.value.map((tag) => tag.postC
 function weight(tag: Tag): number {
   return 0.85 + (tag.postCount / maxCount.value) * 0.9
 }
+
+onMounted(async () => {
+  try {
+    const data = await listTags()
+    tags.value = Array.isArray(data?.tags) ? data.tags : []
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : '标签加载失败'
+  } finally {
+    loading.value = false
+  }
+})
 </script>
 
 <template>

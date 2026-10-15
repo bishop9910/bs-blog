@@ -1,0 +1,584 @@
+<path>G:\bishop9910-website\src\components\functions\HolidayCalendar.vue</path>
+<type>file</type>
+<content>
+1: <template>
+2:   <main>
+3:     <section>
+4:       <div class="calendar">
+5:         <div class="time-set-out">
+6:           <div v-if="loading" class="tso-msg">加载中...</div>
+7:           
+8:           <div v-else-if="countdownTimer && !countdownTimer.isExpired" class="tso-content">
+9:             <h3 class="tso-title">{{ countdownTimer.title }}</h3>
+10:             <div class="tso-timer">
+11:               <span class="tso-num">{{ countdownTimer.day }}</span><span class="tso-unit">天</span>
+12:               <span class="tso-num">{{ countdownTimer.hour }}</span><span class="tso-unit">时</span>
+13:               <span class="tso-num">{{ countdownTimer.minute }}</span><span class="tso-unit">分</span>
+14:               <span class="tso-num">{{ countdownTimer.second }}</span><span class="tso-unit">秒</span>
+15:             </div>
+16:           </div>
+17: 
+18:           <div v-else class="tso-msg">
+19:             <h1>{{ nextRestDay ? '好好休息，计时器也休息了' : '今年似乎没有假期了...' }}</h1>
+20:           </div>
+21:         </div>
+22: 
+23:         <div class="header">
+24:           <button @click="changeMonth(-1)" :disabled="currentMonth === 0">◀</button>
+25:           <span class="month-year">{{ currentMonthYear }}</span>
+26:           <button @click="changeMonth(1)" :disabled="currentMonth === 11">▶</button>
+27:         </div>
+28: 
+29:         <template v-if="!loading">
+30:           <div class="weekdays">
+31:             <div v-for="w in ['日','一','二','三','四','五','六']" :key="w">{{ w }}</div>
+32:           </div>
+33: 
+34:           <div class="days">
+35:             <div
+36:               v-for="day in days"
+37:               :key="day.dateStr"
+38:               :class="[
+39:                 'day',
+40:                 { inactive: !day.isCurrentMonth },
+41:                 { today: day.isToday },
+42:                 { weekend: day.isWeekend && day.isCurrentMonth },
+43:                 { holiday: day.isHoliday && day.isCurrentMonth },
+44:                 { workday: day.isWorkday && day.isCurrentMonth }
+45:               ]"
+46:             >
+47:               <div class="date-num">{{ day.dayNum }}</div>
+48:               
+49:               <div v-if="day.isHoliday" :class="['holiday', { inactive: !day.isCurrentMonth }]">
+50:                 {{ day.holidayName }}
+51:               </div>
+52:               
+53:               <div v-else-if="day.isWeekend" :class="['weekend', { inactive: !day.isCurrentMonth }]">
+54:                 周末
+55:               </div>
+56:               
+57:               <div v-else-if="day.isWorkday" :class="['workday', { inactive: !day.isCurrentMonth }]">
+58:                 调休上班
+59:               </div>
+60:             </div>
+61:           </div>
+62:         </template>
+63:         
+64:         <div class="legend">
+65:           <span><span class="red">“节日”</span>法定节假日</span>
+66:           <span><span class="blue">“调休”</span>需上班</span>
+67:           <span><span class="weekend">“周末”</span>周六日</span>
+68:         </div>
+69:       </div>
+70: 
+71:       <router-link to="/functions" class="btn" style="display:flex">返回功能</router-link>
+72:     </section>
+73:   </main>
+74: </template>
+75: 
+76: <script setup lang="ts">
+77: import { computed, ref, onMounted, onUnmounted, nextTick } from 'vue';
+78: import { TimeSetOut } from '@/scripts/timeSetOut'; // 引入你的类
+79: 
+80: // --- 全局变量兼容 ---
+81: declare const swal: any;
+82: 
+83: // --- 类型定义 ---
+84: type HolidayItem = {
+85:   holiday: boolean;
+86:   name: string;
+87:   date: string;
+88: };
+89: 
+90: type CalendarDay = {
+91:   dayNum: number;
+92:   dateStr: string;
+93:   isCurrentMonth: boolean;
+94:   isToday: boolean;
+95:   isWeekend: boolean;
+96:   isHoliday: boolean;
+97:   isWorkday: boolean;
+98:   holidayName?: string;
+99: };
+100: 
+101: // --- 状态 ---
+102: const now = new Date();
+103: const currentYear = ref(2026);
+104: const currentMonth = ref(Math.min(now.getMonth(), 11));
+105: const holidays = ref<Record<string, HolidayItem>>({});
+106: const nextRestDay = ref<{ date: string; name: string } | null>(null);
+107: const loading = ref(true);
+108: 
+109: // 持有倒计时实例的 ref
+110: const countdownTimer = ref<TimeSetOut | null>(null);
+111: 
+112: // --- 计算属性 ---
+113: const currentMonthYear = computed(() => {
+114:   const months = ['一月', '二月', '三月', '四月', '五月', '六月', '七月', '八月', '九月', '十月', '十一月', '十二月'];
+115:   return `${currentYear.value}年${months[currentMonth.value]}`;
+116: });
+117: 
+118: const days = computed<CalendarDay[]>(() => {
+119:   const year = currentYear.value;
+120:   const month = currentMonth.value;
+121:   const firstDayOfMonth = new Date(year, month, 1);
+122:   const startDate = new Date(firstDayOfMonth);
+123:   startDate.setDate(firstDayOfMonth.getDate() - firstDayOfMonth.getDay());
+124: 
+125:   const result: CalendarDay[] = [];
+126:   const today = new Date();
+127:   const todayStr = toLocalISOString(today);
+128: 
+129:   for (let i = 0; i < 42; i++) {
+130:     const current = new Date(startDate);
+131:     current.setDate(startDate.getDate() + i);
+132: 
+133:     const dateStr = toLocalISOString(current);
+134:     const mm = (current.getMonth() + 1).toString().padStart(2, '0');
+135:     const dd = current.getDate().toString().padStart(2, '0');
+136:     const key = `${mm}-${dd}`;
+137: 
+138:     const isCurrentMonth = current.getMonth() === month;
+139:     const isToday = dateStr === todayStr;
+140: 
+141:     const dayInfo = holidays.value[key];
+142:     const isHoliday = dayInfo ? dayInfo.holiday === true : false;
+143:     const isWorkday = dayInfo ? dayInfo.holiday === false : false;
+144: 
+145:     const dayOfWeek = current.getDay();
+146:     const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6) && !isHoliday && !isWorkday;
+147: 
+148:     result.push({
+149:       dayNum: current.getDate(),
+150:       dateStr,
+151:       isCurrentMonth,
+152:       isToday,
+153:       isWeekend,
+154:       isHoliday,
+155:       isWorkday,
+156:       holidayName: isHoliday ? dayInfo?.name : undefined
+157:     });
+158:   }
+159:   return result;
+160: });
+161: 
+162: // --- 方法 ---
+163: 
+164: function toLocalISOString(date: Date): string {
+165:   const y = date.getFullYear();
+166:   const m = (date.getMonth() + 1).toString().padStart(2, '0');
+167:   const d = date.getDate().toString().padStart(2, '0');
+168:   return `${y}-${m}-${d}`;
+169: }
+170: 
+171: function changeMonth(delta: number) {
+172:   const newVal = currentMonth.value + delta;
+173:   if (newVal >= 0 && newVal <= 11) {
+174:     currentMonth.value = newVal;
+175:   }
+176: }
+177: 
+178: async function fetchHolidays() {
+179:   loading.value = true;
+180:   try {
+181:     const res = await fetch(`https://timor.tech/api/holiday/year/${currentYear.value}?type=Y`);
+182:     const data = await res.json();
+183:     if (data.code === 0 && data.holiday) {
+184:       holidays.value = data.holiday;
+185:       findNextRestDay(data.holiday);
+186:     }
+187:   } catch (err) {
+188:     console.error('加载失败', err);
+189:   } finally {
+190:     loading.value = false;
+191:     initRestCountdown();
+192:   }
+193: }
+194: 
+195: function findNextRestDay(holidayMap: Record<string, HolidayItem>) {
+196:   const todayStr = toLocalISOString(new Date());
+197:   
+198:   // 1. 收集明确的节假日
+199:   let candidates = Object.values(holidayMap).map(h => ({
+200:     date: h.date,
+201:     name: h.name,
+202:     isRest: h.holiday === true
+203:   }));
+204: 
+205:   // 2. 补充未来 60 天的周末
+206:   const tempDate = new Date();
+207:   for(let i=0; i<60; i++) {
+208:     const d = new Date(tempDate);
+209:     d.setDate(tempDate.getDate() + i);
+210:     const dStr = toLocalISOString(d);
+211:     const mmdd = dStr.substring(5);
+212:     
+213:     // 如果已被定义（是节日或调休），跳过
+214:     if (holidayMap[mmdd]) continue;
+215: 
+216:     const day = d.getDay();
+217:     if (day === 0 || day === 6) {
+218:       candidates.push({ date: dStr, name: '周末', isRest: true });
+219:     }
+220:   }
+221: 
+222:   candidates.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+223:   const next = candidates.find(c => c.isRest && c.date >= todayStr); // 改为 >= 包括今天
+224:   
+225:   if (next) {
+226:     // 如果今天就是休息日，倒计时应该指向明天或下一个休息日吗？
+227:     // 逻辑：如果 next.date == todayStr，倒计时结果会是 0，显示“已过期/享受当下”
+228:     nextRestDay.value = { date: next.date, name: next.name };
+229:   }
+230: }
+231: 
+232: function initRestCountdown() {
+233:   // 1. 清理旧的定时器
+234:   if (countdownTimer.value) {
+235:     countdownTimer.value.stop();
+236:     countdownTimer.value = null;
+237:   }
+238: 
+239:   if (!nextRestDay.value) return;
+240:   const targetTime = `${nextRestDay.value.date} 00:00:00`;
+241:   
+242:   // 2. 创建新实例 (TimeSetOut 构造函数会自动调用 start)
+243:   // 注意：我们不能在这里调用 useLifecycle()，因为 initRestCountdown 是异步调用的
+244:   // Vue 的生命周期钩子只能在 setup() 同步阶段调用。
+245:   // 所以我们只实例化，并在组件 onUnmounted 时手动 stop。
+246:   countdownTimer.value = new TimeSetOut({
+247:     title: nextRestDay.value.name,
+248:     time: targetTime,
+249:     swal: typeof swal !== 'undefined' ? swal : undefined,
+250:     isAlertExpired: false
+251:   });
+252: }
+253: 
+254: // --- 生命周期 ---
+255: 
+256: onMounted(() => {
+257:   fetchHolidays();
+258: });
+259: 
+260: onUnmounted(() => {
+261:   // 组件销毁时，确保停止定时器
+262:   if (countdownTimer.value) {
+263:     countdownTimer.value.stop();
+264:   }
+265: });
+266: </script>
+267: 
+268: <style scoped>
+269: /* --- 新的倒计时样式 --- */
+270: .time-set-out {
+271:   padding: 20px;
+272:   text-align: center;
+273:   background: #f8f9fa;
+274:   border-bottom: 1px solid #eee;
+275:   min-height: 100px;
+276:   display: flex;
+277:   flex-direction: column;
+278:   justify-content: center;
+279:   align-items: center;
+280:   font-family: 'Helvetica Neue', Helvetica, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', Arial, sans-serif;
+281: }
+282: 
+283: .tso-title {
+284:   margin: 0 0 10px 0;
+285:   color: #333;
+286:   font-size: 1.2em;
+287:   font-weight: normal;
+288: }
+289: 
+290: .tso-timer {
+291:   display: flex;
+292:   justify-content: center;
+293:   align-items: baseline;
+294:   gap: 5px;
+295: }
+296: 
+297: .tso-num {
+298:   font-size: 2em;
+299:   font-weight: bold;
+300:   color: #409eff; /* Vue Blue */
+301:   font-family: monospace; /* 保持数字等宽 */
+302: }
+303: 
+304: .tso-unit {
+305:   font-size: 0.9em;
+306:   color: #666;
+307:   margin-right: 5px;
+308: }
+309: 
+310: .tso-msg h1 {
+311:   font-size: 1.5em;
+312:   color: #67c23a; /* Success Green */
+313:   margin: 0;
+314: }
+315: 
+316: .calendar {
+317:   max-width: 800px;
+318:   margin: 10px auto;
+319:   background: white;
+320:   border-radius: 10px;
+321:   box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+322:   overflow: hidden;
+323: }
+324: 
+325: .header {
+326:   text-align: center;
+327:   padding: 20px;
+328:   background: #409eff;
+329:   color: white;
+330: }
+331: 
+332: .header button {
+333:   background: white;
+334:   color: #409eff;
+335:   border: none;
+336:   padding: 8px 16px;
+337:   border-radius: 5px;
+338:   cursor: pointer;
+339:   font-weight: bold;
+340: }
+341: 
+342: .header button:disabled {
+343:   color: #ccc;
+344:   cursor: not-allowed;
+345: }
+346: 
+347: .month-year {
+348:   font-size: 1.5em;
+349:   margin: 0 15px;
+350:   display: inline-block;
+351: }
+352: 
+353: .weekdays {
+354:   display: grid;
+355:   grid-template-columns: repeat(7, 1fr);
+356:   text-align: center;
+357:   font-weight: bold;
+358:   padding: 10px 0;
+359:   background: #f0f0f0;
+360: }
+361: 
+362: .weekdays div {
+363:   padding: 5px;
+364: }
+365: 
+366: .days {
+367:   display: grid;
+368:   grid-template-columns: repeat(7, 1fr);
+369:   text-align: center;
+370: }
+371: 
+372: .day {
+373:   padding: 15px 10px;
+374:   border-bottom: 1px solid #eee;
+375:   min-height: 80px;
+376: }
+377: 
+378: .day.inactive,
+379: .day.inactive .holiday,
+380: .day.inactive .weekend,
+381: .day.inactive .workday {
+382:   color: #ccc !important;
+383:   font-size: 0.8em;
+384: }
+385: 
+386: .day.today {
+387:   background-color: #fef1e5;
+388:   border: 1px solid #ffd7a8;
+389: }
+390:   
+391: .date-num {
+392:   font-size: 1em;
+393:   font-weight: bold;
+394:   margin-bottom: 5px;
+395: }
+396: 
+397: .holiday {
+398:   font-size: 0.85em;
+399:   color: #d43838;
+400:   margin-top: 2px;
+401:   white-space: nowrap;
+402: }
+403: 
+404: .workday {
+405:   color: #1989fa;
+406:   font-size: 0.85em;
+407:   font-weight: bold;
+408: }
+409: 
+410: .loading {
+411:   text-align: center;
+412:   padding: 20px;
+413:   color: #999;
+414: }
+415: 
+416: .legend {
+417:   padding: 15px;
+418:   text-align: center;
+419:   font-size: 0.9em;
+420:   color: #666;
+421: }
+422: 
+423: .legend span {
+424:   margin: 0 10px;
+425: }
+426: 
+427: .red { color: #d43838; }
+428: 
+429: .blue { color: #1989fa; }
+430: 
+431: .weekend {
+432:   font-size: 0.85em;
+433:   color: #d234d2;
+434:   margin-top: 2px;
+435:   white-space: nowrap;
+436: }
+437: 
+438: /* 平板及以下 */
+439: @media (max-width: 798px) {
+440:   .calendar {
+441:     margin: 10px;
+442:     border-radius: 8px;
+443:     overflow: hidden;
+444:   }
+445: 
+446:   .header {
+447:     padding: 15px 10px;
+448:   }
+449: 
+450:   .header button {
+451:     padding: 6px 12px;
+452:     font-size: 1em;
+453:   }
+454: 
+455:   .month-year {
+456:     font-size: 1.3em;
+457:   }
+458: 
+459:   .weekdays div {
+460:     padding: 4px;
+461:     font-size: 0.9em;
+462:   }
+463: 
+464:   .day {
+465:     padding: 12px 5px;
+466:     min-height: 60px;
+467:     font-size: 0.9em;
+468:   }
+469: 
+470:   .date-num {
+471:     font-size: 0.95em;
+472:     margin-bottom: 2px;
+473:   }
+474: 
+475:   .holiday, .workday, .weekend {
+476:     font-size: 0.75em !important;
+477:     margin-top: 1px;
+478:   }
+479: 
+480:   .legend {
+481:     font-size: 0.8em;
+482:     padding: 10px;
+483:   }
+484: 
+485:   .legend span {
+486:     display: inline-block;
+487:     margin: 3px 8px;
+488:     white-space: nowrap;
+489:   }
+490: 
+491: }
+492: 
+493: /* 手机端（小屏） */
+494: @media (max-width: 599.98px) {
+495:   .calendar {
+496:     margin: 8px 4px;
+497:     border-radius: 6px;
+498:   }
+499: 
+500:   .header {
+501:     padding: 12px 8px;
+502:     display: flex;
+503:     align-items: center;
+504:     justify-content: center;
+505:     flex-wrap: wrap;
+506:     gap: 8px;
+507:   }
+508: 
+509:   .header button {
+510:     font-size: 1.1em;
+511:     padding: 8px 16px;
+512:     min-width: 40px;
+513:   }
+514: 
+515:   .month-year {
+516:     font-size: 1.2em;
+517:     margin: 0;
+518:     text-align: center;
+519:   }
+520: 
+521:   .weekdays {
+522:     font-size: 0.85em;
+523:   }
+524: 
+525:   .weekdays div {
+526:     padding: 3px;
+527:   }
+528: 
+529:   .days {
+530:     /* 确保手机上每行刚好7个 */
+531:     grid-template-columns: repeat(7, 1fr);
+532:   }
+533: 
+534:   .day {
+535:     padding: 10px 2px;
+536:     min-height: 50px;
+537:     line-height: 1.3;
+538:   }
+539: 
+540:   .date-num {
+541:     font-size: 0.9em;
+542:     font-weight: bold;
+543:   }
+544: 
+545:   .holiday, .workday, .weekend {
+546:     font-size: 0.7em !important;
+547:     margin-top: 1px;
+548:     white-space: normal; /* 允许换行 */
+549:   }
+550: 
+551:   .workday {
+552:     font-weight: normal; /* 避免太粗 */
+553:   }
+554: 
+555:   .legend {
+556:     font-size: 0.75em;
+557:     padding: 8px;
+558:     line-height: 1.4;
+559:   }
+560: 
+561:   .legend span {
+562:     display: block;
+563:     margin: 4px 0;
+564:     text-align: center;
+565:   }
+566: 
+567:   /* 可选：在极小屏隐藏图例文字 */
+568:   @media (max-width: 414px) {
+569:     .legend {
+570:       font-size: 0.7em;
+571:       padding: 6px;
+572:     }
+573:     .legend span {
+574:       margin: 3px 0;
+575:     }
+576:   }
+577: }
+578: </style>
+
+(End of file - total 578 lines)
+</content>

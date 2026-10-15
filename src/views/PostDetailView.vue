@@ -12,13 +12,19 @@ import { getPublished } from '@/api/posts'
 import { ApiError } from '@/api/http'
 import type { PostDetail } from '@/types/blog'
 import { useHighlightedHtml } from '@/composables/useHighlight'
+import { useSite } from '@/composables/useSite'
 import { resetScroll } from '@/composables/useSmoothScroll'
 import { sanitizeHtml } from '@/utils/sanitize'
 import { formatCount, formatDateLong } from '@/utils/format'
+import AuthorAvatar from '@/components/AuthorAvatar.vue'
 import EmptyState from '@/components/EmptyState.vue'
+import SocialLinks from '@/components/SocialLinks.vue'
 import TagPill from '@/components/TagPill.vue'
 
 const route = useRoute()
+const { site } = useSite()
+
+const authorName = computed(() => site.value?.author?.trim() || site.value?.title?.trim() || '')
 
 const detail = ref<PostDetail | null>(null)
 const loading = ref(true)
@@ -121,6 +127,11 @@ onBeforeUnmount(() => {
         <p v-if="post.summary" class="post__summary">{{ post.summary }}</p>
 
         <div class="post__meta">
+          <RouterLink v-if="authorName" class="post__author" :to="{ name: 'about' }">
+            <AuthorAvatar :src="site?.avatarUrl" :name="authorName" :size="22" />
+            <span>{{ authorName }}</span>
+          </RouterLink>
+          <span v-if="authorName" aria-hidden="true">·</span>
           <time :datetime="post.publishedAt ?? post.createdAt">
             {{ formatDateLong(post.publishedAt ?? post.createdAt) }}
           </time>
@@ -137,6 +148,20 @@ onBeforeUnmount(() => {
       <div class="prose post__body" v-html="content" />
 
       <footer class="post__foot">
+        <section v-if="authorName" class="post__author-card">
+          <AuthorAvatar :src="site?.avatarUrl" :name="authorName" :size="56" />
+          <div class="post__author-body">
+            <p class="post__author-name">{{ authorName }}</p>
+            <p v-if="site?.tagline" class="post__author-note">{{ site.tagline }}</p>
+          </div>
+          <SocialLinks
+            v-if="site && site.socials.length > 0"
+            class="post__author-socials"
+            :socials="site.socials"
+            :size="18"
+          />
+        </section>
+
         <div class="post__actions">
           <button class="btn btn--sm" type="button" @click="copyLink">
             <component :is="copied ? PhCheck : PhLink" :size="16" />
@@ -253,6 +278,53 @@ onBeforeUnmount(() => {
   letter-spacing: var(--tracking-wide);
 }
 
+.post__author {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: color var(--dur-fast) var(--ease-out);
+}
+
+.post__author:hover {
+  color: var(--accent);
+}
+
+.post__author-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-lg);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--bg-card);
+}
+
+.post__author-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+  min-width: 0;
+}
+
+.post__author-name {
+  margin: 0;
+  color: var(--text-primary);
+  font-family: var(--font-display);
+  font-size: var(--text-base);
+}
+
+.post__author-note {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.post__author-socials {
+  margin-left: auto;
+}
+
 .post__body {
   padding-bottom: var(--space-2xl);
 }
@@ -367,6 +439,14 @@ onBeforeUnmount(() => {
 @media (max-width: 640px) {
   .post__title {
     font-size: var(--text-3xl);
+  }
+
+  .post__author-card {
+    flex-wrap: wrap;
+  }
+
+  .post__author-socials {
+    margin-left: 0;
   }
 
   .post__nav {

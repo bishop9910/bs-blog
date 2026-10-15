@@ -4,12 +4,19 @@ import { PhArrowRight, PhWarningCircle } from '@phosphor-icons/vue'
 import { listPublished, listTags } from '@/api/posts'
 import type { PostSummary, Tag } from '@/types/blog'
 import { useSite } from '@/composables/useSite'
+import { useTypewriter } from '@/composables/useTypewriter'
 import { formatCount } from '@/utils/format'
+import AuthorAvatar from '@/components/AuthorAvatar.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import PostCard from '@/components/PostCard.vue'
 import TagPill from '@/components/TagPill.vue'
 
 const { site } = useSite()
+
+const authorName = computed(() => site.value?.author?.trim() || site.value?.title?.trim() || 'bs-blog')
+
+const HERO_LINES = ['代码、文字，和一些没想清楚的想法。', '慢慢写，慢慢看。', '欢迎随便逛逛。']
+const { text: heroText, start: startHero } = useTypewriter(HERO_LINES, { speed: 58, hold: 2000 })
 
 const posts = ref<PostSummary[]>([])
 const tags = ref<Tag[]>([])
@@ -30,6 +37,7 @@ const statItems = computed(() => {
 })
 
 onMounted(async () => {
+  startHero()
   try {
     const [page, tagList] = await Promise.all([
       listPublished({ page: 1, pageSize: 7, sort: 'published', order: 'desc' }),
@@ -48,9 +56,22 @@ onMounted(async () => {
 <template>
   <div class="home">
     <section class="hero">
-      <p class="eyebrow">个人博客</p>
+      <div class="hero__id">
+        <AuthorAvatar :src="site?.avatarUrl" :name="authorName" :size="88" ring />
+        <div class="hero__id-text">
+          <p class="eyebrow">个人博客</p>
+          <p v-if="site?.author" class="hero__author">{{ site.author }}</p>
+        </div>
+      </div>
+
       <h1 class="hero__title">{{ site?.title ?? 'bs-blog' }}</h1>
       <p class="hero__tagline">{{ site?.tagline || '一个人的写作空间。' }}</p>
+
+      <p class="hero__status">
+        <span class="hero__prompt" aria-hidden="true">❯</span>
+        <span class="hero__typed">{{ heroText }}</span>
+        <span class="hero__caret" aria-hidden="true" />
+      </p>
 
       <div class="hero__actions">
         <RouterLink class="btn btn--primary" :to="{ name: 'posts' }">
@@ -153,6 +174,68 @@ onMounted(async () => {
   color: var(--text-secondary);
   font-size: var(--text-lg);
   line-height: var(--leading-relaxed);
+}
+
+.hero__id {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.hero__id-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+  min-width: 0;
+}
+
+.hero__id-text .eyebrow {
+  margin: 0;
+}
+
+.hero__author {
+  margin: 0;
+  color: var(--text-primary);
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  letter-spacing: var(--tracking-tight);
+  line-height: var(--leading-snug);
+}
+
+.hero__status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  min-height: 1.5em;
+  margin: 0;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+}
+
+.hero__prompt {
+  color: var(--accent);
+}
+
+.hero__caret {
+  display: inline-block;
+  width: 8px;
+  height: 1.05em;
+  background: var(--accent);
+  opacity: 0.85;
+  animation: hero-caret 1.05s steps(1, end) infinite;
+}
+
+@keyframes hero-caret {
+  0%,
+  49% {
+    opacity: 0.85;
+  }
+
+  50%,
+  100% {
+    opacity: 0;
+  }
 }
 
 .hero__actions {
@@ -267,6 +350,10 @@ onMounted(async () => {
 
 @media (prefers-reduced-motion: reduce) {
   .skeleton {
+    animation: none;
+  }
+
+  .hero__caret {
     animation: none;
   }
 }

@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { useSite } from '@/composables/useSite'
 import { formatCount, formatDate } from '@/utils/format'
+import AuthorAvatar from '@/components/AuthorAvatar.vue'
 import SocialLinks from '@/components/SocialLinks.vue'
 
 const { site } = useSite()
@@ -34,10 +35,14 @@ const STACK = [
 
 <template>
   <div class="page page--narrow">
-    <header class="page__head">
-      <p class="eyebrow">关于</p>
-      <h1 class="page__title">{{ site?.title ?? 'bs-blog' }}</h1>
-      <p class="page__lead">{{ site?.description || '一个人的写作空间。' }}</p>
+    <header class="page__head about__head">
+      <AuthorAvatar :src="site?.avatarUrl" :name="site?.author" :size="104" ring />
+      <div class="about__intro">
+        <p class="eyebrow">关于</p>
+        <h1 class="page__title">{{ site?.author || site?.title || 'bs-blog' }}</h1>
+        <p class="page__lead">{{ site?.description || '一个人的写作空间。' }}</p>
+        <p v-if="site?.author && site?.title" class="about__site">{{ site.title }}</p>
+      </div>
     </header>
 
     <section class="block">
@@ -72,6 +77,31 @@ const STACK = [
 </template>
 
 <style scoped>
+.about__head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-xl);
+}
+
+.about__intro {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.about__intro .eyebrow {
+  margin: 0;
+}
+
+.about__site {
+  margin: 0;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-wide);
+}
+
 .block {
   padding: var(--space-xl) 0;
   border-top: 1px solid var(--border-subtle);
@@ -155,6 +185,11 @@ const STACK = [
 }
 
 @media (max-width: 640px) {
+  .about__head {
+    flex-direction: column;
+    gap: var(--space-lg);
+  }
+
   .stats {
     gap: var(--space-xl);
   }

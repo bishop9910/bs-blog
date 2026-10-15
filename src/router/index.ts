@@ -54,6 +54,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '标签' },
       },
       {
+        path: 'calendar',
+        name: 'calendar',
+        component: () => import('@/views/CalendarView.vue'),
+        meta: { title: '日历' },
+      },
+      {
         path: 'about',
         name: 'about',
         component: () => import('@/views/AboutView.vue'),

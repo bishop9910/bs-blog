@@ -10,11 +10,11 @@
     },
     "session-3f11b84f-98d0-4a8f-8455-97288d2cf511": {
       "sessionId": "session-3f11b84f-98d0-4a8f-8455-97288d2cf511",
-      "rawBytes": 754574,
-      "visibleBytes": 515986,
-      "observations": 236,
-      "usedTokensEstimate": 128997,
-      "updatedAt": "2026-10-14T07:37:12.435Z"
+      "rawBytes": 1265898,
+      "visibleBytes": 967784,
+      "observations": 521,
+      "usedTokensEstimate": 241946,
+      "updatedAt": "2026-10-14T15:08:52.771Z"
     }
   }
 }

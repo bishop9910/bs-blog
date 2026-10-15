@@ -3,6 +3,7 @@ import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { PhList, PhLockSimple, PhX } from '@phosphor-icons/vue'
 import { useRoute } from 'vue-router'
 import { useSite } from '@/composables/useSite'
+import AuthorAvatar from './AuthorAvatar.vue'
 import ThemeToggle from './ThemeToggle.vue'
 
 const { site } = useSite()
@@ -16,6 +17,7 @@ const NAV = [
   { name: 'posts', label: '文章' },
   { name: 'archive', label: '归档' },
   { name: 'tags', label: '标签' },
+  { name: 'calendar', label: '日历' },
   { name: 'about', label: '关于' },
 ] as const
 
@@ -51,7 +53,14 @@ watch(
   <header class="header" :class="{ 'is-scrolled': scrolled }">
     <div class="header__inner">
       <RouterLink class="brand" :to="{ name: 'home' }">
-        <span class="brand__mark" aria-hidden="true" />
+        <AuthorAvatar
+          v-if="site?.avatarUrl"
+          class="brand__avatar"
+          :src="site.avatarUrl"
+          :name="site.author"
+          :size="26"
+        />
+        <span v-else class="brand__mark" aria-hidden="true" />
         <span class="brand__name">{{ site?.title ?? 'bs-blog' }}</span>
       </RouterLink>
 
@@ -152,6 +161,15 @@ watch(
 
 .brand:hover .brand__mark {
   transform: rotate(45deg) scale(1.2);
+}
+
+.brand__avatar {
+  border-color: var(--accent-border);
+  transition: transform var(--dur-normal) var(--ease-spring);
+}
+
+.brand:hover .brand__avatar {
+  transform: scale(1.08);
 }
 
 .brand__name {
