@@ -1,6 +1,12 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import type { RouteRecordRaw } from 'vue-router'
 import { useAuth } from '@/stores/auth'
+import {
+  abortRouteTransition,
+  beginRouteTransition,
+  cancelRouteTransition,
+  markRouteCommitted,
+} from '@/composables/usePageTransition'
 
 declare module 'vue-router' {
   interface RouteMeta {
@@ -157,6 +163,34 @@ router.beforeEach(async (to) => {
 
   if (ok) return true
   return { name: 'admin-login', query: { redirect: to.fullPath } }
+})
+
+/**
+ * The curtain closes here — at click time, before the lazy chunk is even
+ * requested, and a full route change before the next page starts working. This
+ * guard waits for it, so the chunk fetch, the mount and the page's own data
+ * request all happen behind a covered screen instead of during the animation.
+ *
+ * Registered after the auth guard on purpose: when that one redirects, the
+ * remaining guards are skipped, so a visit that never lands never flashes a
+ * blade across the page.
+ */
+router.beforeEach(async (to, from) => {
+  await beginRouteTransition(to, from)
+})
+
+router.afterEach((_to, _from, failure) => {
+  if (failure) {
+    cancelRouteTransition()
+    return
+  }
+  // The route is committed; the page behind the blade gets a frame to lay out,
+  // and then reports for itself whether it has content yet.
+  void markRouteCommitted()
+})
+
+router.onError(() => {
+  abortRouteTransition()
 })
 
 export default router

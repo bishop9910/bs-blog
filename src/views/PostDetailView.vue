@@ -14,6 +14,7 @@ import type { PostDetail } from '@/types/blog'
 import { useHighlightedHtml } from '@/composables/useHighlight'
 import { useSite } from '@/composables/useSite'
 import { prefersReducedMotion, resetScroll } from '@/composables/useSmoothScroll'
+import { usePageReady } from '@/composables/usePageTransition'
 import { motion } from '@/utils/anime'
 import { sanitizeHtml } from '@/utils/sanitize'
 import { formatCount, formatDateLong } from '@/utils/format'
@@ -79,6 +80,10 @@ watch(showBackToTop, async (visible) => {
 })
 
 async function load(slug: string) {
+  // An article is the whole point of the page, so the blade waits for it — and
+  // because this is where the work starts, going from one post to the next
+  // (which remounts the view) and going back to the list both behave the same.
+  const pageDone = usePageReady()
   loading.value = true
   notFound.value = false
   error.value = ''
@@ -95,6 +100,7 @@ async function load(slug: string) {
     }
   } finally {
     loading.value = false
+    pageDone()
   }
 }
 

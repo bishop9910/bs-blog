@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { listTags } from '@/api/posts'
 import type { Tag } from '@/types/blog'
 import EmptyState from '@/components/EmptyState.vue'
+import { usePageReady } from '@/composables/usePageTransition'
 
 const tags = ref<Tag[]>([])
 const loading = ref(true)
@@ -17,6 +18,9 @@ function weight(tag: Tag): number {
 }
 
 onMounted(async () => {
+  // The blade stays closed until this answers, so the empty tag cloud is never
+  // the first thing seen.
+  const pageDone = usePageReady()
   try {
     const data = await listTags()
     tags.value = Array.isArray(data?.tags) ? data.tags : []
@@ -24,6 +28,7 @@ onMounted(async () => {
     error.value = caught instanceof Error ? caught.message : '标签加载失败'
   } finally {
     loading.value = false
+    pageDone()
   }
 })
 </script>

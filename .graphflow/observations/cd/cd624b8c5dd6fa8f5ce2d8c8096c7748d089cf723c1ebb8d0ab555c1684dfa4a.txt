@@ -1,0 +1,81 @@
+Found 20 memory entries:
+
+[1] 公开站路由切换方向感知动画
+    ID: a9b9b152-0242-41d2-978e-2df452424144 | type: project | importance: 4 | updated: 2026-10-16T04:09:33.233Z | occurred: 2026-10-16T04:03:27.000Z
+    src/layouts/PublicLayout.vue 用 `<Transition :css="false" mode="out-in">` + anime.js leave/enter 钩子（第 164 行）实现方向感知路由切换：每个公开路由在 meta.order 声明顺序（首页 0→文章 1→文章详情 2→归档 3→标签 4→标签详情 5→日历 6→关于 7，见 src/router/i…
+
+[2] 后台保留轻量 CSS 淡入淡出
+    ID: 62ab6b99-5a5b-4fee-af94-510127eb6ca9 | type: decision | importance: 3 | updated: 2026-10-16T04:09:33.240Z | occurred: 2026-10-16T04:03:27.000Z
+    bs-blog 路由转场只做在公开站（PublicLayout.vue），后台 AdminLayout.vue 仍用轻量 CSS route-fade（src/styles/motion.css），因为工作区每次点击演 600ms 动效会碍事。
+
+[3] 路由转场的两条护栏
+    ID: 89614ceb-b8e8-4da9-a7eb-f5d36c885cb5 | type: decision | importance: 4 | updated: 2026-10-16T04:09:33.245Z | occurred: 2026-10-16T04:03:27.000Z
+    PublicLayout.vue 路由转场必须保留两条护栏：(1) 动画被下一次导航打断时 anime.js 不再触发 onComplete，Vue 的 done 需看门狗兜底，否则路由视图永久卡在旧页面；(2) 进场结束后必须清掉 anime.js 留下的内联 transform，否则元素成为 position:fixed 包含块，阅读进度条和右侧目录会错位。另给页面列加 overflow-x:…
+
+[4] bs-blog 密码锁范围
+    ID: e2c877d8-40cf-4a44-8391-67b7efd3cbbf | type: project | importance: 3 | updated: 2026-10-13T13:01:14.207Z
+    bs-blog 密码锁目前只保护 /admin（登录后写文章），公开站点（首页、文章、归档、标签）任何人可访问；若要整站私密需另做改动（后端给 SPA 外壳和公开读接口加门禁 + 前端加解锁页）。
+
+[5] 卡片错峰波浪限制 12 张
+    ID: cfca40f4-3b3d-4301-b835-90eb58fc459d | type: decision | importance: 3 | updated: 2026-10-15T16:00:37.244Z
+    HomeView.vue 与公开 PostListView.vue 的卡片错峰动画中 CARD_WAVE_LIMIT = 12，第 13 张起的卡片直接可见而不参与波浪；motionStagger 使用 each: 55，动画 settle 后 removeProperty('opacity'|'transform') 以免内联 transform 压过 .card:hover。
+
+[6] 本次动画改动允许的文件范围
+    ID: a42a5b7d-b6de-4f7f-abbc-e578b3311539 | type: project | importance: 4 | updated: 2026-10-15T16:00:37.257Z
+    本次四项动画改动仅允许修改 src/components/SiteHeader.vue、src/views/HomeView.vue、src/views/PostListView.vue(公开版)、src/components/visual/WallpaperStage.vue；明确未碰 src/styles/*.css、src/utils/anime.ts、src/components/Post…
+
+[7] bs-blog Go 后端已完成并通过端到端 smoke test
+    ID: 55a5cbb0-affe-4d98-ac67-a3ee66598f88 | type: project | importance: 5 | updated: 2026-10-15T16:02:08.653Z
+    bs-blog 的 Go 后端（backend/，Kratos v2.9.2 手写路由 + GORM + glebarez/sqlite 纯 Go 驱动）已完成并通过端到端 smoke test（脚本 backend/scripts/smoke.ps1，已从 .gotmp/ 迁入 scripts/，输出 "ALL SMOKE TESTS PASSED"）。全程离线构建，用户无需安装任何 Go 依赖…
+
+[8] bs-blog v2 功能：壁纸 + Go 音乐服务 + 侧边播放器
+    ID: 702f65bc-bb35-4277-b7d5-861039034d64 | type: project | importance: 4 | updated: 2026-10-15T15:49:54.729Z | scope: global / bs-blog
+    bs-blog 2026-10 新增三块能力（均已构建通过）： 1) 壁纸：SiteProfile.Wallpapers（DB 列 wallpapers，JSON 文本，默认 '[]'）→ GET /site 下发 wallpapers: string[]，PUT /admin/site 写入；上限 24、同址去重、只允许站点相对路径或 http(s) 绝对地址（isSafeImageTarget…
+
+[9] 前端 UI 库选型偏好
+    ID: 23a026e4-51bf-4c91-b29a-eeb5ef575859 | type: preference | importance: 4 | updated: 2026-09-18T12:33:27.908Z
+    用户要求前端 UI 组件库需美观且动画效果丰富（强调动画多），需要助手推荐合适的组件库并据此规划完整规范的开发文档。
+
+[10] 从外部移除 .reveal 以接管卡片动画
+    ID: 712758c6-0972-4c91-85b9-5f7b3bafc35a | type: decision | importance: 3 | updated: 2026-10-15T16:00:37.262Z
+    src/components/PostCard.vue:22 根 <article> 硬编码 v-reveal，而 src/styles/motion.css:11 的 .reveal 是 opacity:0 且带 CSS transition；因 PostCard.vue 不在可改清单内，卡片动画需从外部 classList.remove('reveal') + 摘除 data-motion-c…
+
+[11] bs-blog v2 前端零新增依赖，动画自研
+    ID: 4a669d2a-c127-45b4-83cb-2dde79236263 | type: decision | importance: 4 | updated: 2026-10-15T15:33:24.645Z
+    bs-blog v2 的动画全部自研（Canvas + Web Animations API + CSS）；前端零新增依赖。原因：开发 shell 连不上 npm registry，anime.js / gsap / @vueuse/motion 在 pnpm store 和 npm cache 里都找不到。用户若仍想要 anime.js，需自行跑 pnpm add animejs，再把入场/波形…
+
+[12] 借鉴哥们站点 NeoBlog 的双语歌词而非动画
+    ID: 0ba0be98-af95-4425-a4a9-4840335a8e5c | type: decision | importance: 3 | updated: 2026-10-15T15:48:46.013Z
+    调研桌面 blog 文件夹后决定：哥们站点是 Vue SPA「NeoBlog」，CSS 里几乎无 keyframes、动画无可抄；真正值得借的是其音乐播放器的「日文原文＋中文翻译双行歌词」（同时间戳→原文+翻译），已列入音乐播放器工作流；frontend-dev-bookmarks 的 animation 分类全是 Animate.css/GSAP/Tween.js 等老库，认为不值得新增依赖。
+
+[13] koharu-frontend 代码缺陷与路由失效根因
+    ID: 01af0864-d399-4d5a-892f-1d61443e1110 | type: history | importance: 5 | updated: 2026-09-21T04:31:00.388Z
+    src/App.vue 模板只有 <Toaster /> 和 <LoginView />，缺 <router-view />，导致 /、/registe、/profile 全渲染同一张登录卡片，路由完全失效——这是「点哪儿都没用」的主因（已由编译产物 createElementBlock 验证）。登录：LoginView.vue 未 await encryptPassword(form.value…
+
+[14] 为 hw16–hw18 提供依据的 Go 版本特性事实
+    ID: 4a586287-d9eb-4f0c-a556-02f72f4d4078 | type: project | importance: 4 | updated: 2026-09-23T05:53:55.650Z
+    Go 1.25 起容器感知 GOMAXPROCS：Linux 运行时考虑 cgroup CPU bandwidth limit（对应 k8s CPU limit），可用 GODEBUG=containermaxprocs=0 对比（hw16/hw17 围绕「CPU limit 与 GOMAXPROCS 不匹配导致 CPU 限流」排查）。Green Tea GC：Go 1.25 为 GOEXPERI…
+
+[15] Kratos 网盘前端项目要求
+    ID: 3aa18dbe-5b1e-411e-b28b-dd361a1728f8 | type: project | importance: 5 | updated: 2026-09-21T04:31:01.252Z
+    在 frontend 文件夹中构建网盘前端，技术栈 Vue3 + Pinia + VueRouter + TypeScript，需实现后端所有已实现功能；管理页面路由以 @manage 开头；使用 pnpm 安装依赖；前端文档仅需查看 docs/readme.md。
+
+[16] SiteHeader 站名乱码揭示
+    ID: 053e3ec9-9b7c-4dcc-a298-b1cba9d67a4b | type: history | importance: 3 | updated: 2026-10-15T16:01:04.377Z
+    SiteHeader.vue 新增 brandTitle computed（site.value?.title?.trim() || 'bs-blog'）与 playScramble()，用 scrambleTo(el, title, { chars: 'A-Z0-9', from: 'left' }) 在 onMounted/watch/onBeforeUnmount 触发；watch 用 ro…
+
+[17] SiteHeader 乱码揭示用 route.path 而非 fullPath
+    ID: 0ddece6c-fdaf-4307-99c1-12559167c61a | type: decision | importance: 3 | updated: 2026-10-15T16:00:37.236Z
+    src/components/SiteHeader.vue 的站名乱码揭示 watch([brandTitle, () => route.path]) 使用 route.path 而非 fullPath，因为公开列表翻页走 ?page=N，用 fullPath 会让每次翻页都重放乱码；如需查询变化也重放可改回 fullPath。
+
+[18] 决定：系统设置改为「系统信息/习题信息」只读展示
+    ID: 4f034516-82a1-4469-b3ee-924675351432 | type: decision | importance: 5 | updated: 2026-09-21T04:31:00.567Z
+    因原「系统设置/运行参数」中的参数实际不生效（生效策略来自服务端配置文件，前端改不了生效），决定不再展示假的可编辑设置项：将其改名为「系统信息」或「习题信息」，仅作只读展示并补充更多信息；除非能保证真正生效，否则不做系统设置。权限项中的「系统管理」需同步改名，避免与「系统信息」不一致。另亮暗主题切换按钮提示与 admin 密码前端过滤一并处理。
+
+[19] 动效降级约定
+    ID: 98812985-8be9-4e44-b512-fd89c468dd32 | type: preference | importance: 4 | updated: 2026-10-15T16:01:04.372Z
+    bs-blog 动效约定：prefers-reduced-motion 优先（每个封装在访客要求减少动效时返回 null），故被动画的元素不得由 CSS 预设隐藏，降级时页面必须原样可读；reduced-motion 兜底在 src/utils/anime.ts:145-148（node.innerHTML = text）。前端请求一律走 src/api/http.ts，401 统一清本地 tok…
+
+[20] bs-blog 编辑器复用组件导致路由变化不重载（"回来草稿全空"的真因）
+    ID: 0f1f9021-78bf-4acf-a4ce-476fc2f1e622 | type: pitfall | importance: 4 | updated: 2026-10-13T15:50:55.418Z
+    症状：bs-blog 后台里「/admin/posts/new」与「/admin/posts/:id/edit」互切后，编辑器显示错误内容——从编辑页点「写文章」会留着上一篇的标题和正文；反向（空的新建表单 → 已有文章）则更糟：URL 变成 /admin/posts/1/edit 但表单全空、postId 仍是 0，用户看到的正是「保存之后切到别的页面再回来到草稿就啥也没有了」。 根因：src/…

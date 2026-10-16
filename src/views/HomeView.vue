@@ -5,6 +5,7 @@ import { listPublished, listTags } from '@/api/posts'
 import type { PostSummary, Tag } from '@/types/blog'
 import { useSite } from '@/composables/useSite'
 import { useTypewriter } from '@/composables/useTypewriter'
+import { usePageReady } from '@/composables/usePageTransition'
 import { formatCount } from '@/utils/format'
 import {
   countUp,
@@ -197,6 +198,9 @@ watch(statItems, () => playStats(), { flush: 'post' })
 onMounted(async () => {
   playHero()
   startHero()
+  // The headline and the typewriter are worth arriving to, so the blade waits
+  // for the posts as well — held to the ceiling if the API is having a day.
+  const pageDone = usePageReady()
   // When the profile was already cached the stats row exists at mount, and the
   // watcher above will not fire — the count-up still has to run.
   void nextTick(playStats)
@@ -211,6 +215,7 @@ onMounted(async () => {
     error.value = caught instanceof Error ? caught.message : '加载失败'
   } finally {
     loading.value = false
+    pageDone()
   }
 })
 </script>

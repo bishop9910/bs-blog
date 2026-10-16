@@ -7,6 +7,7 @@ import { motionStagger, reduceMotion, utils } from '@/utils/anime'
 import EmptyState from '@/components/EmptyState.vue'
 import PostCard from '@/components/PostCard.vue'
 import TagPill from '@/components/TagPill.vue'
+import { usePageReady } from '@/composables/usePageTransition'
 
 const route = useRoute()
 const router = useRouter()
@@ -33,6 +34,10 @@ const totalPages = computed(() => Math.max(1, Math.ceil(total.value / PAGE_SIZE)
 const title = computed(() => (activeTag.value ? `# ${activeTagName.value}` : '文章'))
 
 async function fetchPage(target: number) {
+  // Registered where the work starts, not in setup: paging keeps this
+  // component alive, so the curtain would otherwise lift before the new page of
+  // posts exists.
+  const pageDone = usePageReady()
   loading.value = true
   error.value = ''
   try {
@@ -52,6 +57,7 @@ async function fetchPage(target: number) {
     total.value = 0
   } finally {
     loading.value = false
+    pageDone()
   }
 }
 

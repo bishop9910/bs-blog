@@ -4,6 +4,7 @@ import { getArchive } from '@/api/posts'
 import type { ArchiveYear } from '@/types/blog'
 import { formatDateShort } from '@/utils/format'
 import EmptyState from '@/components/EmptyState.vue'
+import { usePageReady } from '@/composables/usePageTransition'
 
 const years = ref<ArchiveYear[]>([])
 const loading = ref(true)
@@ -32,6 +33,8 @@ function monthLabel(month: number): string {
 }
 
 onMounted(async () => {
+  // Nothing behind the blade until the timeline is actually there.
+  const pageDone = usePageReady()
   try {
     const result = await getArchive()
     years.value = result.years
@@ -39,6 +42,7 @@ onMounted(async () => {
     error.value = caught instanceof Error ? caught.message : '加载失败'
   } finally {
     loading.value = false
+    pageDone()
   }
 })
 </script>

@@ -36,13 +36,13 @@ import {
   type TimelineParams,
 } from 'animejs'
 
-const REDUCE_QUERY = '(prefers-reduced-motion: reduce)'
+import { prefersReducedMotion } from '@/utils/reduced-motion'
 
-/** True when the visitor asked the OS for less motion. */
-export function reduceMotion(): boolean {
-  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false
-  return window.matchMedia(REDUCE_QUERY).matches
-}
+/**
+ * True when the visitor asked the OS for less motion. Re-exported here so the
+ * motion helpers keep a single import for callers that are already animating.
+ */
+export const reduceMotion = prefersReducedMotion
 
 /**
  * The site's own "out-expo" curve, matching `--ease-out` in tokens.css. Used as

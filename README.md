@@ -221,9 +221,15 @@ cd backend && go run ./cmd/dbdump ../data/blog.db
 
 ### 路由切换
 
-公开站在 `PublicLayout.vue` 里用**方向感知**的转场（`<Transition :css="false">` 配 anime.js 的 leave/enter 钩子）替代了原来的 `route-fade` 类名过渡：每个公开路由在 meta 里声明 `order`（首页 0、文章 1、文章详情 2、归档 3、标签 4、标签详情 5、日历 6、关于 7），页内往前导航就从**右侧推入**、旧页往左上退出（200ms 走、420ms 进），往回导航整体镜像——所以「回到归档」不会看起来像「又去了一次归档」。转场的同时一道 `--accent` 色的光带横向掠过一次（`z-index: var(--z-overlay)`，暗色 pink-500、浅色 pink-600，跟着主题自动换），它挂在被切换的视图**之外**，页面交换不会把它一起带走。
+公开站的切换是一块**遮罩**，不是页面之间的过渡。原因很实际：`<Transition>` 的钩子要等懒加载分包下载完、组件挂载完、数据请求发出去之后才轮到执行——等动画开始，卡的那一下早就被看见了。所以遮罩在 `router.beforeEach` 里就开始关闭（点击那一刻），并且**这次导航会等它关上**：分包、挂载、页面自己的请求全部发生在遮罩背后，关闭动画则拿到一个空闲的主线程，不和它正要遮的东西抢帧。
 
-两个必须保留的护栏：动画被下一次导航打断时 anime.js 不再触发 `onComplete`，所以 `done` 有看门狗兜底（否则路由视图要永久卡在旧页面）；进场结束后必须清掉 anime.js 留下的内联 `transform`，否则这个元素就成了 `position: fixed` 的包含块，阅读进度条和右侧目录会跟着错位。管理后台仍是轻量的 CSS 淡入淡出——后台是工作区，每次点击都演 600ms 会碍事。
+- 形状：一条斜切的光刃（`src/components/visual/RouteCurtain.vue`）沿行进方向扫过内容列，刃口是 `--accent`，面板是主题自己的底色（`--bg-base` 90% + 28px 背景模糊）——不透明到能盖住任何半渲染的骨架。它盖住内容但**不盖页头与播放器**（z-index 取 `--z-sticky` 减一），所以点下去导航高亮立刻变、音乐继续放、点了别的链接也还能再点。
+- 方向：每个公开路由在 meta 里声明 `order`（首页 0、文章 1、文章详情 2、归档 3、标签 4、标签详情 5、日历 6、关于 7）。前进时从右侧进、往左扫出，后退整体镜像；页面自己在刃口后面按同一方向归位（42px 位移 + 淡入）。
+- 什么时候放开：新页面挂载并布局完（`nextTick` + 一帧）**并且**页面自己报了「内容到了」才揭幕。会取数据的页面（首页、文章列表、文章详情、归档、标签）在**开工处**调用 `usePageReady()`、在 `finally` 里回话——放在开工处而不是 `setup` 里，因为列表翻页不会重建组件，详情页也能原地重载。1.2 秒的硬上限保证任何页面都不能把站点扣住；等超过 0.52 秒才会出现「正在载入」的小胶囊。
+- 不走遮罩的情况：访客要求减少动效、管理后台（保持原来的 CSS 淡入淡出）、页内锚点跳转、以及**首次加载**（没有可离开的页面，此时由壁纸与 hero 动画负责开场）。这些都写在 `src/composables/usePageTransition.ts` 的 `coveredByCurtain()` 里。
+- 时间参数都在 `usePageTransition.ts` 顶部，改那一处即可：`COVER_MS = 240`、`HOLD_MIN_MS = 110`、`REVEAL_MS = 380`、`HOLD_MAX_MS = 1200`、`SLOW_MS = 520`。
+
+两条必须保留的护栏：进场结束后要清掉 anime.js 留下的内联 `transform`，否则这个元素就成了 `position: fixed` 的包含块，阅读进度条和右侧目录会跟着错位；遮罩自己带看门狗与硬上限（`abortRouteTransition()` 在 `router.afterEach` 失败、`router.onError` 和外壳卸载时都会把状态收回），所以它的任何一步出问题都不会让站点卡住。
 
 
 ---
@@ -240,7 +246,7 @@ cd backend && go run ./cmd/dbdump ../data/blog.db
 │   ├── stores/auth.ts       登录状态（模块级单例，无需 Pinia）
 │   ├── styles/              设计令牌 + 基础样式 + 动效 + 编辑器样式
 │   ├── types/blog.ts        前后端共享的数据契约
-│   ├── utils/               格式化、文本处理、HTML 净化、LRC 解析、anime.js 动效封装
+│   ├── utils/               格式化、文本处理、HTML 净化、LRC 解析、动效偏好、anime.js 动效封装
 │   └── views/               页面
 ├── backend/
 │   ├── cmd/server/          入口

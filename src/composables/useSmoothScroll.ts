@@ -1,4 +1,5 @@
 import Lenis from 'lenis'
+import { prefersReducedMotion } from '@/utils/reduced-motion'
 
 /**
  * Inertial scrolling. Kept in a module so the public layout can start and stop
@@ -9,12 +10,9 @@ import Lenis from 'lenis'
 let lenis: Lenis | null = null
 let frame = 0
 
-export function prefersReducedMotion(): boolean {
-  return (
-    typeof window !== 'undefined' &&
-    window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  )
-}
+// Part of this module's public surface: layouts and views ask it before
+// scheduling any scrolling of their own.
+export { prefersReducedMotion }
 
 export function startSmoothScroll() {
   if (lenis || typeof window === 'undefined' || prefersReducedMotion()) return

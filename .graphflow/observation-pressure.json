@@ -18,11 +18,11 @@
     },
     "session-0d6cb27b-b857-45f3-9390-7d1e8086f85f": {
       "sessionId": "session-0d6cb27b-b857-45f3-9390-7d1e8086f85f",
-      "rawBytes": 38759,
-      "visibleBytes": 38759,
-      "observations": 46,
-      "usedTokensEstimate": 9690,
-      "updatedAt": "2026-10-16T04:09:15.944Z"
+      "rawBytes": 121572,
+      "visibleBytes": 109601,
+      "observations": 120,
+      "usedTokensEstimate": 27400,
+      "updatedAt": "2026-10-16T04:26:15.868Z"
     },
     "0e6a1867-3bbd-4066-b535-d8448407e2bb": {
       "sessionId": "0e6a1867-3bbd-4066-b535-d8448407e2bb",
