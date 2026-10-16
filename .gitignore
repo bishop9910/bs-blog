@@ -73,7 +73,6 @@ backend/cmd/server/*.syso
 
 .claude/
 .trae/
-.vscode/
 
 graphflow-out/
 .graphflow/
