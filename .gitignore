@@ -71,3 +71,10 @@ backend/release/
 backend/winres/icon.png
 backend/cmd/server/*.syso
 
+.claude/
+.trae/
+.vscode/
+
+graphflow-out/
+.graphflow/
+.graphflow-cache/
