@@ -105,14 +105,30 @@ var defaultMusicExtensions = []string{"mp3", "flac", "m4a", "m4b", "ogg", "opus"
 // create, then a write per buffer — into a single rescan once the dust settles.
 const musicWatchDebounce = 2 * time.Second
 
+// MusicOptions configures the library.
+//
+// The three size caps arrive already resolved from music.* in config.yaml. A
+// non-positive value falls back to the defaults below, so a hand-written config
+// or a zero value cannot end up reading an unbounded sidecar file.
+type MusicOptions struct {
+	Dir            string
+	Extensions     []string
+	Watch          bool
+	MaxUploadBytes int64
+	MaxCoverBytes  int64
+	MaxLyricsBytes int64
+}
+
 // MusicRepo answers questions about a directory of audio files.
 type MusicRepo struct {
-	root     string
-	exts     map[string]struct{}
-	extList  []string
-	watch    bool
-	maxBytes int64
-	logger   *log.Helper
+	root        string
+	exts        map[string]struct{}
+	extList     []string
+	watch       bool
+	maxBytes    int64
+	coverBytes  int64
+	lyricsBytes int64
+	logger      *log.Helper
 
 	mu      sync.RWMutex
 	library *MusicLibrary
@@ -121,14 +137,14 @@ type MusicRepo struct {
 // NewMusicRepo indexes the music directory. An empty dir disables the library
 // entirely; a dir that does not exist yet is a supported state too — the index
 // is simply empty and the directory is created by the first upload.
-func NewMusicRepo(root string, extensions []string, watch bool, maxUploadBytes int64, logger *log.Helper) *MusicRepo {
+func NewMusicRepo(opts MusicOptions, logger *log.Helper) *MusicRepo {
 	if logger == nil {
 		logger = log.NewHelper(log.DefaultLogger)
 	}
 
 	exts := make(map[string]struct{})
-	extList := make([]string, 0, len(extensions))
-	for _, ext := range extensions {
+	extList := make([]string, 0, len(opts.Extensions))
+	for _, ext := range opts.Extensions {
 		ext = strings.ToLower(strings.Trim(strings.TrimSpace(ext), "."))
 		if ext == "" {
 			continue
@@ -148,12 +164,14 @@ func NewMusicRepo(root string, extensions []string, watch bool, maxUploadBytes i
 	sort.Strings(extList)
 
 	r := &MusicRepo{
-		root:     strings.TrimSpace(root),
-		exts:     exts,
-		extList:  extList,
-		watch:    watch,
-		maxBytes: maxUploadBytes,
-		logger:   logger,
+		root:        strings.TrimSpace(opts.Dir),
+		exts:        exts,
+		extList:     extList,
+		watch:       opts.Watch,
+		maxBytes:    positiveOr(opts.MaxUploadBytes, 32<<20),
+		coverBytes:  positiveOr(opts.MaxCoverBytes, 5<<20),
+		lyricsBytes: positiveOr(opts.MaxLyricsBytes, 1<<20),
+		logger:      logger,
 	}
 
 	if r.root == "" {
@@ -166,10 +184,18 @@ func NewMusicRepo(root string, extensions []string, watch bool, maxUploadBytes i
 	// real library rather than an empty one that fills in a moment later.
 	r.store(r.scan())
 
-	if watch {
+	if opts.Watch {
 		r.startWatcher()
 	}
 	return r
+}
+
+// positiveOr returns value when it is set, and the fallback otherwise.
+func positiveOr(value, fallback int64) int64 {
+	if value > 0 {
+		return value
+	}
+	return fallback
 }
 
 // scan walks the music directory and returns a fresh snapshot. It never fails
@@ -270,7 +296,7 @@ func (r *MusicRepo) indexFile(path string) (*MusicTrack, error) {
 		r.logger.Warnf("data: ignoring sidecar of %s: %v", path, sidecarErr)
 	}
 
-	track.HasLyrics = hasLyrics(r.root, path, sc)
+	track.HasLyrics = r.hasLyrics(path, sc)
 	track.HasCover = track.CoverMIME != ""
 	return track, nil
 }
@@ -299,7 +325,7 @@ func (r *MusicRepo) applySidecar(track *MusicTrack, sc *trackSidecar) {
 		track.Year = sc.Year
 	}
 	if v := strings.TrimSpace(sc.Cover); v != "" {
-		mime, err := probeCover(r.root, filepath.Dir(track.Path), v)
+		mime, err := r.probeCover(filepath.Dir(track.Path), v)
 		if err != nil {
 			r.logger.Warnf("data: ignoring sidecar cover of %s: %v", track.Path, err)
 		} else {

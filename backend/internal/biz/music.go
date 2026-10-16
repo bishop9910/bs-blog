@@ -51,9 +51,25 @@ type MusicRepo interface {
 	Delete(ctx context.Context, id string) error
 }
 
-// defaultMaxAudioUploadBytes caps an audio upload when music.maxUploadBytes is
-// left unset.
-const defaultMaxAudioUploadBytes = 32 << 20
+// MusicUploadLimits are the size caps the library works with: one for an audio
+// upload arriving through the admin API, and two for the sidecar files that are
+// read straight off disk. All three come from music.* in config.yaml, because a
+// deployment may hold lossless rips or scans of very different sizes.
+type MusicUploadLimits struct {
+	MaxUploadBytes int64
+	MaxCoverBytes  int64
+	MaxLyricsBytes int64
+}
+
+// DefaultMusicUploadLimits caps audio at 32 MiB, a cover at 5 MiB and a lyrics
+// file at 1 MiB when config.yaml leaves a value unset.
+func DefaultMusicUploadLimits() MusicUploadLimits {
+	return MusicUploadLimits{
+		MaxUploadBytes: 32 << 20,
+		MaxCoverBytes:  5 << 20,
+		MaxLyricsBytes: 1 << 20,
+	}
+}
 
 // The stream and cover URLs are paths on the server that served the page. That
 // is what lets an <audio> element and an <img> tag reach them without a token,
@@ -131,16 +147,33 @@ type MusicLyricsDTO struct {
 
 // MusicUsecase lists the library and serves one track's bytes, cover and lyrics.
 type MusicUsecase struct {
-	repo     MusicRepo
-	maxBytes int64
+	repo   MusicRepo
+	limits MusicUploadLimits
 }
 
-// NewMusicUsecase wires the use case to the on-disk library.
-func NewMusicUsecase(repo MusicRepo, maxUploadBytes int64) *MusicUsecase {
-	if maxUploadBytes <= 0 {
-		maxUploadBytes = defaultMaxAudioUploadBytes
+// NewMusicUsecase wires the use case to the on-disk library. Any cap left at
+// zero falls back to the default, so an unset field cannot mean "no limit".
+func NewMusicUsecase(repo MusicRepo, limits MusicUploadLimits) *MusicUsecase {
+	defaults := DefaultMusicUploadLimits()
+	if limits.MaxUploadBytes <= 0 {
+		limits.MaxUploadBytes = defaults.MaxUploadBytes
 	}
-	return &MusicUsecase{repo: repo, maxBytes: maxUploadBytes}
+	if limits.MaxCoverBytes <= 0 {
+		limits.MaxCoverBytes = defaults.MaxCoverBytes
+	}
+	if limits.MaxLyricsBytes <= 0 {
+		limits.MaxLyricsBytes = defaults.MaxLyricsBytes
+	}
+	return &MusicUsecase{repo: repo, limits: limits}
+}
+
+// Limits reports the size policy the admin page should quote.
+func (uc *MusicUsecase) Limits() MusicLimitsDTO {
+	return MusicLimitsDTO{
+		MaxUploadBytes: uc.limits.MaxUploadBytes,
+		MaxCoverBytes:  uc.limits.MaxCoverBytes,
+		MaxLyricsBytes: uc.limits.MaxLyricsBytes,
+	}
 }
 
 // Library returns the public listing.
@@ -218,8 +251,8 @@ func (uc *MusicUsecase) Save(ctx context.Context, header *multipart.FileHeader) 
 	if header.Size <= 0 {
 		return nil, errBadRequest("文件内容为空")
 	}
-	if header.Size > uc.maxBytes {
-		return nil, errBadRequest(fmt.Sprintf("音频不能超过 %d MB", uc.maxBytes>>20))
+	if header.Size > uc.limits.MaxUploadBytes {
+		return nil, errBadRequest(fmt.Sprintf("音频不能超过 %d MB", uc.limits.MaxUploadBytes>>20))
 	}
 
 	track, err := uc.repo.Save(ctx, header)

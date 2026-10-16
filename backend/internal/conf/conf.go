@@ -42,6 +42,7 @@ func (d Duration) Std() time.Duration { return time.Duration(d) }
 type Config struct {
 	Server ServerConfig `yaml:"server"`
 	Data   DataConfig   `yaml:"data"`
+	Site   SiteConfig   `yaml:"site"`
 	Music  MusicConfig  `yaml:"music"`
 	Auth   AuthConfig   `yaml:"auth"`
 	CORS   CORSConfig   `yaml:"cors"`
@@ -83,6 +84,21 @@ type DataConfig struct {
 	MaxUploadBytes int64 `yaml:"maxUploadBytes"`
 }
 
+// SiteConfig bounds the site metadata the settings page may store.
+//
+// Only the fields worth tuning per deployment live here. The per-field text
+// caps (title, tagline, description, …) stay in internal/biz/site.go because
+// they are matched to the column sizes in internal/model; the settings UI still
+// reads them back through GET /admin/limits, so it never has to guess.
+type SiteConfig struct {
+	// MaxWallpapers caps the wallpaper pool. 0 turns wallpapers off entirely,
+	// which is a supported state: the site falls back to the shader backdrop.
+	MaxWallpapers int `yaml:"maxWallpapers"`
+	// MaxWallpaperLength caps one wallpaper URL, in characters. Wallpapers may
+	// be absolute links, so this is generous.
+	MaxWallpaperLength int `yaml:"maxWallpaperLength"`
+}
+
 // MusicConfig points at the on-disk music library.
 //
 // The library is the directory: no track is ever written to SQLite, so moving or
@@ -101,6 +117,12 @@ type MusicConfig struct {
 	// MaxUploadBytes caps a single audio upload. Must stay below
 	// server.maxBodyBytes, which is the ceiling that actually reaches the socket.
 	MaxUploadBytes int64 `yaml:"maxUploadBytes"`
+	// MaxCoverBytes caps a cover image read off disk, whether it sits inside the
+	// audio file's tags or in a sidecar. Measured on the file, before reading.
+	MaxCoverBytes int64 `yaml:"maxCoverBytes"`
+	// MaxLyricsBytes caps a .lrc file. Lyrics are kilobytes in practice; the
+	// ceiling only stops a mistaken path from being read into memory.
+	MaxLyricsBytes int64 `yaml:"maxLyricsBytes"`
 }
 
 // AuthConfig configures the password lock.
@@ -150,11 +172,17 @@ func Default() *Config {
 			UploadURL:      "/uploads",
 			MaxUploadBytes: 10 << 20,
 		},
+		Site: SiteConfig{
+			MaxWallpapers:      24,
+			MaxWallpaperLength: 512,
+		},
 		Music: MusicConfig{
 			Dir:            "data/music",
 			Extensions:     []string{"mp3", "flac", "m4a", "m4b", "ogg", "opus", "wav"},
 			Watch:          true,
 			MaxUploadBytes: 32 << 20,
+			MaxCoverBytes:  5 << 20,
+			MaxLyricsBytes: 1 << 20,
 		},
 		Auth: AuthConfig{
 			SecretFile: "data/jwt.secret",
@@ -210,11 +238,37 @@ func (c *Config) Validate() error {
 	if c.Server.MaxBodyBytes <= 0 {
 		return fmt.Errorf("conf: server.maxBodyBytes must be positive")
 	}
+	if c.Data.MaxUploadBytes <= 0 {
+		return fmt.Errorf("conf: data.maxUploadBytes must be positive")
+	}
+	if c.Data.MaxUploadBytes > c.Server.MaxBodyBytes {
+		// Same trap as the music ceiling below: the body filter runs first, so a
+		// larger per-image cap could never be reached and the upload would fail
+		// with "request too large" from an unrelated layer.
+		return fmt.Errorf(
+			"conf: data.maxUploadBytes (%d) must not exceed server.maxBodyBytes (%d)",
+			c.Data.MaxUploadBytes, c.Server.MaxBodyBytes,
+		)
+	}
+	if c.Site.MaxWallpapers < 0 {
+		return fmt.Errorf("conf: site.maxWallpapers must not be negative")
+	}
+	// 0 wallpapers is a supported state (the feature is off), so the length only
+	// has to make sense while the pool is actually allowed to hold something.
+	if c.Site.MaxWallpapers > 0 && c.Site.MaxWallpaperLength <= 0 {
+		return fmt.Errorf("conf: site.maxWallpaperLength must be positive while wallpapers are enabled")
+	}
 	// An empty music.dir is a supported state — the library is simply disabled —
 	// so the rest of the block is only meaningful once a directory is named.
 	if c.Music.Dir != "" {
 		if c.Music.MaxUploadBytes <= 0 {
 			return fmt.Errorf("conf: music.maxUploadBytes must be positive")
+		}
+		if c.Music.MaxCoverBytes <= 0 {
+			return fmt.Errorf("conf: music.maxCoverBytes must be positive")
+		}
+		if c.Music.MaxLyricsBytes <= 0 {
+			return fmt.Errorf("conf: music.maxLyricsBytes must be positive")
 		}
 		if c.Server.MaxBodyBytes < c.Music.MaxUploadBytes {
 			// The body filter rejects the request before the upload handler can

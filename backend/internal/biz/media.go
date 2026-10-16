@@ -11,6 +11,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -62,6 +63,19 @@ func NewMediaUsecase(store *data.Store, uploadDir, urlPrefix string, maxBytes in
 		urlPrefix: strings.TrimRight(urlPrefix, "/"),
 		maxBytes:  maxBytes,
 	}
+}
+
+// Limits reports the image upload policy. The MIME whitelist is deliberately
+// not configurable: it is the sanitisation boundary, and letting a deployment
+// add types (SVG in particular) would turn an uploaded file into stored XSS on
+// the blog's own origin. The size cap does come from data.maxUploadBytes.
+func (uc *MediaUsecase) Limits() MediaLimitsDTO {
+	types := make([]string, 0, len(allowedImageTypes))
+	for mimeType := range allowedImageTypes {
+		types = append(types, mimeType)
+	}
+	sort.Strings(types)
+	return MediaLimitsDTO{MaxUploadBytes: uc.maxBytes, AllowedTypes: types}
 }
 
 // List returns one page of the library, newest first.

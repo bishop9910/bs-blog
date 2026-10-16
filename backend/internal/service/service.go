@@ -149,6 +149,10 @@ func (h *Handler) Register(srv *khttp.Server) {
 
 	// Admin: site metadata.
 	h.route(r, http.MethodPut, "/admin/site", h.authed(h.updateSite))
+
+	// Admin: the effective size and field policy, so the forms quote the values
+	// this deployment actually enforces rather than a hard-coded copy.
+	h.route(r, http.MethodGet, "/admin/limits", h.authed(h.getLimits))
 }
 
 func (h *Handler) route(r *khttp.Router, method, pattern string, fn khttp.HandlerFunc) {

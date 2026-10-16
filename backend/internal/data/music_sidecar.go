@@ -16,15 +16,10 @@ import (
 	"golang.org/x/text/encoding/simplifiedchinese"
 )
 
-// maxCoverBytes caps a cover image loaded from a sidecar. Cover art lives in
-// memory only long enough to answer one request, but a sidecar pointing at a
-// huge file would still be read whole, so the size is checked before reading.
-const maxCoverBytes = 5 << 20 // 5 MiB
-
-// maxLyricsBytes caps a .lrc file. Lyrics are a few kilobytes in practice; the
-// limit only stops a mistaken path (a log file, a video) from being read into
-// memory and into a JSON response.
-const maxLyricsBytes = 1 << 20 // 1 MiB
+// Cover art and lyrics are read within the caps the repo was built with
+// (music.maxCoverBytes / music.maxLyricsBytes, see MusicOptions). A cap matters
+// because a sidecar is a local file that a mistaken path could point anywhere:
+// the size is checked before anything is read into memory.
 
 // trackSidecar is the optional JSON metadata that may sit next to an audio file
 // (song.mp3 → song.json). Every field is optional and a field that is present
@@ -99,8 +94,8 @@ func looksLikeLyricsPath(s string) bool {
 }
 
 // loadCover reads a cover image referenced by a sidecar.
-func loadCover(root, dir, rel string) ([]byte, string, error) {
-	full, err := resolveSidecarPath(root, dir, rel)
+func (r *MusicRepo) loadCover(dir, rel string) ([]byte, string, error) {
+	full, err := resolveSidecarPath(r.root, dir, rel)
 	if err != nil {
 		return nil, "", err
 	}
@@ -108,7 +103,7 @@ func loadCover(root, dir, rel string) ([]byte, string, error) {
 	if err != nil {
 		return nil, "", err
 	}
-	if st.Size() > maxCoverBytes {
+	if st.Size() > r.coverBytes {
 		return nil, "", fmt.Errorf("data: sidecar cover too large (%d bytes): %q", st.Size(), rel)
 	}
 	b, err := os.ReadFile(full)
@@ -122,8 +117,8 @@ func loadCover(root, dir, rel string) ([]byte, string, error) {
 // claims, without reading the image. A scan only needs to know that a cover is
 // there — the bytes are read when the cover route is called — and reading every
 // cover of a large library just to record its type would dwarf the index.
-func probeCover(root, dir, rel string) (string, error) {
-	full, err := resolveSidecarPath(root, dir, rel)
+func (r *MusicRepo) probeCover(dir, rel string) (string, error) {
+	full, err := resolveSidecarPath(r.root, dir, rel)
 	if err != nil {
 		return "", err
 	}
@@ -131,7 +126,7 @@ func probeCover(root, dir, rel string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if st.Size() > maxCoverBytes {
+	if st.Size() > r.coverBytes {
 		return "", fmt.Errorf("data: sidecar cover too large (%d bytes): %q", st.Size(), rel)
 	}
 
@@ -155,7 +150,7 @@ func probeCover(root, dir, rel string) (string, error) {
 // The bytes are read on every call rather than kept in the index. Covers are
 // served with a long cache lifetime, so a browser asks once, while holding one
 // image per track in memory would dwarf everything else the library keeps.
-func resolveCover(root, audioPath string) ([]byte, string, error) {
+func (r *MusicRepo) resolveCover(audioPath string) ([]byte, string, error) {
 	if f, err := os.Open(audioPath); err == nil {
 		m, tagErr := tag.ReadFrom(f)
 		_ = f.Close()
@@ -179,20 +174,20 @@ func resolveCover(root, audioPath string) ([]byte, string, error) {
 	if strings.TrimSpace(sc.Cover) == "" {
 		return nil, "", os.ErrNotExist
 	}
-	return loadCover(root, filepath.Dir(audioPath), sc.Cover)
+	return r.loadCover(filepath.Dir(audioPath), sc.Cover)
 }
 
 // readLyrics loads a .lrc file next to a track, returning "" when there is none.
 // Lyrics are best-effort: a missing or unreadable file is not an error, it just
 // means the track has no lyrics to show.
-func readLyrics(path string) string {
+func (r *MusicRepo) readLyrics(path string) string {
 	f, err := os.Open(path)
 	if err != nil {
 		return ""
 	}
 	defer f.Close()
 
-	b, err := io.ReadAll(io.LimitReader(f, maxLyricsBytes))
+	b, err := io.ReadAll(io.LimitReader(f, r.lyricsBytes))
 	if err != nil {
 		return ""
 	}
@@ -203,13 +198,13 @@ func readLyrics(path string) string {
 // directory scan does not pull the text of every song into memory. Only
 // existence and size are checked; the text itself is decoded when the lyrics
 // route is actually called.
-func hasLyrics(root, audioPath string, sc *trackSidecar) bool {
+func (r *MusicRepo) hasLyrics(audioPath string, sc *trackSidecar) bool {
 	if sc != nil {
 		if inline := strings.TrimSpace(sc.Lyrics); inline != "" {
 			if !looksLikeLyricsPath(inline) {
 				return true
 			}
-			full, err := resolveSidecarPath(root, filepath.Dir(audioPath), inline)
+			full, err := resolveSidecarPath(r.root, filepath.Dir(audioPath), inline)
 			if err != nil {
 				return false
 			}

@@ -295,14 +295,20 @@ cd backend && go run ./cmd/dbdump ../data/blog.db
 | `server.addr` | `0.0.0.0:8080` | 绑所有网卡，局域网内其他机器可用 `http://<本机IP>:8080` 访问；改成 `127.0.0.1:8080` 则只允许本机 |
 | `server.staticDir` | 空 | 覆盖二进制内嵌的前端。留空就用内嵌副本；指向的目录不存在或没有 `index.html` 也回退到内嵌副本。想用外置目录（例如开发时指向 `../dist`）才需要填 |
 | `data.uploadUrl` | `/uploads` | 已存文章的图片链接依赖这个前缀，改了会断图 |
-| `data.maxUploadBytes` | `10485760` | 单张图片上限 |
+| `data.maxUploadBytes` | `10485760` | 单张图片上限。**必须 ≤ `server.maxBodyBytes`** |
+| `site.maxWallpapers` | `24` | 壁纸池上限。**0 是有效设置**，表示关掉壁纸功能、退回默认极光背景 |
+| `site.maxWallpaperLength` | `512` | 单条壁纸地址长度；`maxWallpapers` 为 0 时这一项不校验 |
 | `music.dir` | `data/music` | 音乐库目录，递归扫描。**留空即关闭音乐库**（接口返回空列表，不会 404）；目录不存在也会自动退化 |
 | `music.watch` | `true` | 目录变化后自动重扫；放在网络共享上被事件刷屏时可以关掉，改用后台的手动重扫 |
 | `music.extensions` | 七种常见格式 | 参与索引的扩展名，去掉哪个就不再索引哪种格式（文件不会被删） |
 | `music.maxUploadBytes` | `33554432` | 单个音频上传上限，**必须 ≤ `server.maxBodyBytes`**，否则启动时直接报配置错误 |
+| `music.maxCoverBytes` | `5242880` | 从 sidecar 读入的最大封面（5 MiB），读取前先按文件大小判断 |
+| `music.maxLyricsBytes` | `1048576` | 最大 `.lrc` 文件（1 MiB），防止 sidecar 指错路径把大文件读进内存 |
 | `server.maxBodyBytes` | `33554432` | 请求体总上限；想传更大的无损音频，这两个键要一起调大 |
 | `auth.tokenTtl` | `168h` | 登录有效期 |
 | `log.level` | `info` | 改成 `debug` 会同时打印 SQL |
+
+上表里的限制都是**服务端真实生效的值**：后台表单不硬编码任何数字，而是启动时读一次 `GET /admin/limits`（`{ media, music, site }`），用它决定文件选择器的 `accept`、输入框的 `maxlength`、上传前的大小预检和页面上的提示文案。改 `config.yaml` 重启后，前端文案跟着变。唯一不能配的是图片 MIME 白名单：它是消毒边界，允许加 SVG 等于把上传文件变成同源 XSS。
 
 ---
 
@@ -311,6 +317,7 @@ cd backend && go run ./cmd/dbdump ../data/blog.db
 - 前后端的数据契约以 `src/types/blog.ts` 为准，后端 `internal/biz/dto.go` 逐字段镜像它
 - 后端路由是**手写**的，没有引入 protobuf 代码生成。受保护的路由通过 `h.authed(...)` 包装，鉴权在类型层面无法被静默漏掉
 - 音乐路由和 `/uploads` 一样是**公开只读**的（听歌不该先登录），写操作（上传/删除/重扫）才要求会话
-- 壁纸存在 `site_profile.wallpapers` 里，是一段 JSON 文本；只接受站点相对路径或 http(s) 绝对地址，最多 24 张、同址去重，空数组即清空。前端按**每次整页加载**随机挑一张，客户端路由切换不会重抽
+- 壁纸存在 `site_profile.wallpapers` 里，是一段 JSON 文本；只接受站点相对路径或 http(s) 绝对地址，最多 `site.maxWallpapers` 张、同址去重，空数组即清空。前端按**每次整页加载**随机挑一张，客户端路由切换不会重抽
+- 上传与字段限制只在 `config.yaml` 和 `internal/biz` 里定义一次：能部署时调整的（图片/音频大小、封面、歌词、壁纸数量）放 YAML，和数据库列宽绑定的文本上限放 `biz/site.go`，两者都通过 `GET /admin/limits` 回报给前端，页面不复制任何常量
 - JS 动效一律走 `src/utils/anime.ts`，业务代码不直接 `import 'animejs'`；被动画的元素**不得**由 CSS 预设隐藏，`prefers-reduced-motion` 下页面必须原样可读
 - 前端所有请求都经过 `src/api/http.ts`，401 会统一清掉本地 token 并跳回登录页

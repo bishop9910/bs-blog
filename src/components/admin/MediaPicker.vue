@@ -11,8 +11,10 @@ import { computed, ref, watch } from 'vue'
 import { NButton, NInput, NModal, NProgress, useMessage } from 'naive-ui'
 import { PhCheck, PhUploadSimple } from '@phosphor-icons/vue'
 import { listMedia, uploadMedia } from '@/api/media'
+import { useLimits } from '@/composables/useLimits'
 import type { MediaAsset } from '@/types/blog'
 import { formatBytes } from '@/utils/format'
+import { describeSizeLimit } from '@/utils/limits'
 
 const props = withDefaults(
   defineProps<{
@@ -35,6 +37,10 @@ const emit = defineEmits<{
 
 const PAGE_SIZE = 18
 const message = useMessage()
+
+// The picker uploads too, so it quotes the same policy the media page does.
+const { limits, load: loadLimits } = useLimits()
+const acceptAttr = computed(() => limits.value.media.allowedTypes.join(','))
 
 const assets = ref<MediaAsset[]>([])
 const total = ref(0)
@@ -107,6 +113,13 @@ async function handleFiles(files: FileList | null): Promise<void> {
   progress.value = 0
   try {
     for (const file of Array.from(files)) {
+      // Same pre-check as the media page: the transfer is the expensive part.
+      if (file.size > limits.value.media.maxUploadBytes) {
+        message.warning(
+          `${file.name} 超过 ${describeSizeLimit(limits.value.media.maxUploadBytes)}，已跳过`,
+        )
+        continue
+      }
       const asset = await uploadMedia(file, (percent) => {
         progress.value = percent
       })
@@ -132,6 +145,7 @@ watch(
     if (!open) return
     selected.value = []
     page.value = 1
+    void loadLimits()
     void load()
   },
 )
@@ -161,7 +175,7 @@ watch(
           ref="fileInput"
           class="picker__input"
           type="file"
-          accept="image/*"
+          :accept="acceptAttr"
           multiple
           @change="handleFiles(($event.target as HTMLInputElement).files)"
         />

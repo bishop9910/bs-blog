@@ -62,17 +62,38 @@ func run(confPath string) error {
 	}
 	store := data.NewStore(db)
 
+	// The site field policy starts from the schema-matched defaults; only the
+	// two caps that are worth tuning per deployment come from config.yaml.
+	siteLimits := biz.DefaultSiteLimits()
+	siteLimits.MaxWallpapers = cfg.Site.MaxWallpapers
+	siteLimits.MaxWallpaperLength = cfg.Site.MaxWallpaperLength
+
+	// The music caps are read once here and used both to guard an upload and to
+	// bound the sidecar files the scanner reads off disk.
+	musicLimits := biz.MusicUploadLimits{
+		MaxUploadBytes: cfg.Music.MaxUploadBytes,
+		MaxCoverBytes:  cfg.Music.MaxCoverBytes,
+		MaxLyricsBytes: cfg.Music.MaxLyricsBytes,
+	}
+
 	handler := service.NewHandler(
 		biz.NewAuthUsecase(store, secure.NewSigner(secret, cfg.Auth.TokenTTL.Std()), cfg.Auth.BcryptCost),
 		biz.NewPostUsecase(store),
 		biz.NewMediaUsecase(store, cfg.Data.UploadDir, cfg.Data.UploadURL, cfg.Data.MaxUploadBytes),
-		biz.NewSiteUsecase(store),
+		biz.NewSiteUsecase(store, siteLimits),
 		biz.NewMusicUsecase(
 			// The music library lives on disk rather than in the store, so it
 			// takes the directory settings and a logger for the files it has to
 			// skip while scanning.
-			data.NewMusicRepo(cfg.Music.Dir, cfg.Music.Extensions, cfg.Music.Watch, cfg.Music.MaxUploadBytes, helper),
-			cfg.Music.MaxUploadBytes,
+			data.NewMusicRepo(data.MusicOptions{
+				Dir:            cfg.Music.Dir,
+				Extensions:     cfg.Music.Extensions,
+				Watch:          cfg.Music.Watch,
+				MaxUploadBytes: musicLimits.MaxUploadBytes,
+				MaxCoverBytes:  musicLimits.MaxCoverBytes,
+				MaxLyricsBytes: musicLimits.MaxLyricsBytes,
+			}, helper),
+			musicLimits,
 		),
 		cfg,
 		logger,

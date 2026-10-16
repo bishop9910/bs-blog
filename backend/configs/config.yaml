@@ -44,6 +44,17 @@ data:
   # Per-image ceiling. Must stay below server.maxBodyBytes.
   maxUploadBytes: 10485760
 
+site:
+  # How many wallpapers the site may keep. The public page picks one at random
+  # per visit. 0 is a real setting rather than a missing one: it turns the
+  # wallpaper pool off and the default aurora background takes over.
+  maxWallpapers: 24
+  # Per-wallpaper URL length. Ignored when maxWallpapers is 0. The remaining
+  # field limits (title, tagline, socials...) are matched to the column sizes in
+  # internal/model and stay code constants; the admin page reads them back from
+  # GET /admin/limits.
+  maxWallpaperLength: 512
+
 music:
   # Directory scanned for audio files, recursively. It is created by the first
   # upload, so it does not have to exist. Leave the value empty to disable the
@@ -69,6 +80,13 @@ music:
   # server.maxBodyBytes: the body filter runs first, so a larger value here could
   # never be reached.
   maxUploadBytes: 33554432
+  # Largest cover image read from a sidecar .json, 5 MiB. Covers are held in
+  # memory only long enough to answer one request, but a sidecar pointing at a
+  # huge file would still be read whole.
+  maxCoverBytes: 5242880
+  # Largest .lrc file read, 1 MiB. Lyrics are a few kilobytes in practice; the
+  # cap only stops a mistaken path (a log, a video) from being loaded.
+  maxLyricsBytes: 1048576
 
 auth:
   # Optional hex-encoded signing key, at least 32 bytes. Leave empty to use

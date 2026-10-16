@@ -5,12 +5,17 @@ import { PhFloppyDisk, PhImage, PhPlus, PhTrash } from '@phosphor-icons/vue'
 import { updateSite } from '@/api/site'
 import { changePassword } from '@/api/auth'
 import { useSite } from '@/composables/useSite'
+import { useLimits } from '@/composables/useLimits'
 import MediaPicker from '@/components/admin/MediaPicker.vue'
 import WallpaperManager from '@/components/admin/WallpaperManager.vue'
 import type { SocialLink } from '@/types/blog'
 
 const message = useMessage()
 const { site, setSite } = useSite()
+
+// The per-field caps are enforced on write; reading them back lets each input
+// stop at the length the server would keep anyway, so nothing is silently cut.
+const { limits, load: loadLimits } = useLimits()
 
 const ICON_OPTIONS = [
   { label: 'GitHub', value: 'github' },
@@ -85,6 +90,10 @@ function applySite(meta: typeof site.value) {
 }
 
 function addSocial() {
+  if (socials.value.length >= limits.value.site.maxSocials) {
+    message.warning(`最多只能添加 ${limits.value.site.maxSocials} 个链接`)
+    return
+  }
   socials.value.push({ icon: 'link', label: '', url: '' })
 }
 
@@ -118,6 +127,7 @@ async function submitPassword() {
 onMounted(async () => {
   try {
     const { load } = useSite()
+    void loadLimits()
     await load()
   } finally {
     applySite(site.value)
@@ -140,12 +150,12 @@ onMounted(async () => {
         <div class="form">
           <label class="field">
             <span class="field__label">站点名称</span>
-            <NInput v-model:value="form.title" placeholder="bs-blog" />
+            <NInput v-model:value="form.title" :maxlength="limits.site.maxTitleLength" placeholder="bs-blog" />
           </label>
 
           <label class="field">
             <span class="field__label">一句话介绍</span>
-            <NInput v-model:value="form.tagline" placeholder="写点东西" />
+            <NInput v-model:value="form.tagline" :maxlength="limits.site.maxTaglineLength" placeholder="写点东西" />
           </label>
 
           <label class="field">
@@ -153,6 +163,7 @@ onMounted(async () => {
             <NInput
               v-model:value="form.description"
               type="textarea"
+              :maxlength="limits.site.maxDescriptionLength"
               :autosize="{ minRows: 2, maxRows: 4 }"
               placeholder="出现在关于页和搜索结果里"
             />
@@ -161,7 +172,7 @@ onMounted(async () => {
           <div class="form__row">
             <label class="field">
               <span class="field__label">作者</span>
-              <NInput v-model:value="form.author" placeholder="怎么称呼你" />
+              <NInput v-model:value="form.author" :maxlength="limits.site.maxAuthorLength" placeholder="怎么称呼你" />
             </label>
 
             <label class="field">
@@ -176,7 +187,7 @@ onMounted(async () => {
 
           <label class="field">
             <span class="field__label">页脚说明</span>
-            <NInput v-model:value="form.footerNote" placeholder="留空则用站点描述" />
+            <NInput v-model:value="form.footerNote" :maxlength="limits.site.maxFooterLength" placeholder="留空则用站点描述" />
           </label>
         </div>
       </section>
@@ -192,7 +203,7 @@ onMounted(async () => {
         <div v-if="socials.length > 0" class="socials">
           <div v-for="(link, index) in socials" :key="index" class="socials__row">
             <NSelect v-model:value="link.icon" class="socials__icon" :options="ICON_OPTIONS" />
-            <NInput v-model:value="link.label" placeholder="显示名称" />
+            <NInput v-model:value="link.label" :maxlength="limits.site.maxSocialLabelLength" placeholder="显示名称" />
             <NInput v-model:value="link.url" placeholder="https://…" />
             <NButton quaternary type="error" title="删除" @click="removeSocial(index)">
               <template #icon><PhTrash :size="16" /></template>

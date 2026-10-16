@@ -127,6 +127,35 @@ type SiteMetaDTO struct {
 	Stats       SiteStatsDTO    `json:"stats"`
 }
 
+// SiteLimitsDTO is the site-metadata field policy, as reported to the settings
+// page. The numbers are enforced on write either way; publishing them lets the
+// form pre-check instead of hard-coding a second copy of every limit.
+type SiteLimitsDTO struct {
+	MaxSocials           int `json:"maxSocials"`
+	MaxWallpapers        int `json:"maxWallpapers"`
+	MaxWallpaperLength   int `json:"maxWallpaperLength"`
+	MaxTitleLength       int `json:"maxTitleLength"`
+	MaxTaglineLength     int `json:"maxTaglineLength"`
+	MaxDescriptionLength int `json:"maxDescriptionLength"`
+	MaxAuthorLength      int `json:"maxAuthorLength"`
+	MaxFooterLength      int `json:"maxFooterLength"`
+	MaxSocialLabelLength int `json:"maxSocialLabelLength"`
+}
+
+// MediaLimitsDTO is the image upload policy.
+type MediaLimitsDTO struct {
+	MaxUploadBytes int64    `json:"maxUploadBytes"`
+	AllowedTypes   []string `json:"allowedTypes"`
+}
+
+// MusicLimitsDTO is the size policy for the music library: what may be uploaded,
+// and how large a cover or a lyrics file may be before it is skipped.
+type MusicLimitsDTO struct {
+	MaxUploadBytes int64 `json:"maxUploadBytes"`
+	MaxCoverBytes  int64 `json:"maxCoverBytes"`
+	MaxLyricsBytes int64 `json:"maxLyricsBytes"`
+}
+
 // UserDTO is the signed-in administrator.
 type UserDTO struct {
 	ID          int64   `json:"id"`

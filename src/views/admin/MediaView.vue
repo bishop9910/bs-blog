@@ -1,14 +1,26 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { NButton, NInput, NPopconfirm, NProgress, useMessage } from 'naive-ui'
 import { PhCopy, PhTrash, PhUploadSimple } from '@phosphor-icons/vue'
 import { deleteMedia, listMedia, uploadMedia } from '@/api/media'
+import { useLimits } from '@/composables/useLimits'
 import type { MediaAsset } from '@/types/blog'
 import { formatBytes, formatDate } from '@/utils/format'
+import { describeImageTypes, describeSizeLimit } from '@/utils/limits'
 
 const PAGE_SIZE = 24
 
 const message = useMessage()
+
+// The accepted types and the size cap come from GET /admin/limits, so editing
+// config.yaml changes what this page promises as well as what the server does.
+const { limits, load: loadLimits } = useLimits()
+const acceptAttr = computed(() => limits.value.media.allowedTypes.join(','))
+const dropHint = computed(() => {
+  const types = describeImageTypes(limits.value.media.allowedTypes)
+  const size = describeSizeLimit(limits.value.media.maxUploadBytes)
+  return types ? `支持 ${types}，${size}` : size
+})
 
 const assets = ref<MediaAsset[]>([])
 const loading = ref(false)
@@ -48,6 +60,14 @@ async function handleFiles(files: FileList | null) {
   let uploaded = 0
   try {
     for (const file of Array.from(files)) {
+      // Reject locally what the server would reject anyway: uploading a 60 MB
+      // photo just to read "图片不能超过 10 MB" wastes the whole transfer.
+      if (file.size > limits.value.media.maxUploadBytes) {
+        message.warning(
+          `${file.name} 超过 ${describeSizeLimit(limits.value.media.maxUploadBytes)}，已跳过`,
+        )
+        continue
+      }
       const asset = await uploadMedia(file, (percent) => {
         progress.value = percent
       })
@@ -93,7 +113,10 @@ async function remove(asset: MediaAsset) {
   }
 }
 
-onMounted(load)
+onMounted(() => {
+  void load()
+  void loadLimits()
+})
 </script>
 
 <template>
@@ -123,13 +146,13 @@ onMounted(load)
         ref="fileInput"
         class="drop__input"
         type="file"
-        accept="image/*"
+        :accept="acceptAttr"
         multiple
         @change="handleFiles(($event.target as HTMLInputElement).files)"
       />
       <PhUploadSimple :size="28" weight="bold" />
       <p class="drop__text">把图片拖到这里，或<button class="drop__pick" type="button" @click="fileInput?.click()">选择文件</button></p>
-      <p class="drop__hint">支持 PNG / JPEG / WebP / GIF / SVG，单文件不超过 10 MB</p>
+      <p class="drop__hint">{{ dropHint }}</p>
       <NProgress
         v-if="uploading"
         class="drop__progress"

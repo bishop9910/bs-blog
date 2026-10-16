@@ -18,11 +18,14 @@ import {
   PhUploadSimple,
 } from '@phosphor-icons/vue'
 import { deleteMusic, getAdminMusic, rescanMusic, uploadMusic } from '@/api/music'
+import { useLimits } from '@/composables/useLimits'
 import type { MusicAdminLibrary, MusicTrack } from '@/types/music'
 import { formatDurationMs } from '@/utils/time'
-import { formatDate } from '@/utils/format'
+import { formatBytes, formatDate } from '@/utils/format'
 
 const message = useMessage()
+
+const { limits, load: loadLimits } = useLimits()
 
 const library = ref<MusicAdminLibrary | null>(null)
 const loading = ref(false)
@@ -33,7 +36,18 @@ const dragOver = ref(false)
 const keyword = ref('')
 const fileInput = ref<HTMLInputElement | null>(null)
 
-const ACCEPT = '.mp3,.flac,.m4a,.m4b,.ogg,.opus,.wav,audio/*'
+// The accepted extensions are the ones the scanner indexes (music.extensions),
+// so a listed format is always one the file dialog offers; the audio/* entry
+// stays as a catch-all for formats the browser knows but this list does not.
+const acceptAttr = computed(() => {
+  const exts = library.value?.extensions ?? []
+  const listed = exts.map((ext) => `.${ext}`).join(',')
+  return listed ? `${listed},audio/*` : 'audio/*'
+})
+
+const uploadHint = computed(
+  () => `文件会写入音乐目录，标签和封面由后端读取，不需要在前端填。单个文件不超过 ${formatBytes(limits.value.music.maxUploadBytes)}`,
+)
 
 const rows = computed<MusicTrack[]>(() => {
   const needle = keyword.value.trim().toLowerCase()
@@ -75,6 +89,14 @@ async function handleFiles(files: FileList | null): Promise<void> {
   let uploaded = 0
   try {
     for (const file of Array.from(files)) {
+      // Fail locally rather than after the transfer: the server enforces the same
+      // cap, and re-uploading a skipped file is the author's decision to make.
+      if (file.size > limits.value.music.maxUploadBytes) {
+        message.warning(
+          `${file.name} 超过 ${formatBytes(limits.value.music.maxUploadBytes)}，已跳过`,
+        )
+        continue
+      }
       await uploadMusic(file, (percent) => {
         progress.value = percent
       })
@@ -155,7 +177,10 @@ const columns: DataTableColumns<MusicTrack> = [
   },
 ]
 
-onMounted(load)
+onMounted(() => {
+  void load()
+  void loadLimits()
+})
 </script>
 
 <template>
@@ -224,7 +249,7 @@ onMounted(load)
         ref="fileInput"
         class="drop__input"
         type="file"
-        :accept="ACCEPT"
+        :accept="acceptAttr"
         multiple
         @change="handleFiles(($event.target as HTMLInputElement).files)"
       />
@@ -232,7 +257,7 @@ onMounted(load)
       <p class="drop__text">
         把音频拖到这里，或<button class="drop__pick" type="button" @click="fileInput?.click()">选择文件</button>
       </p>
-      <p class="drop__hint">文件会写入音乐目录，标签和封面由后端读取，不需要在前端填。</p>
+      <p class="drop__hint">{{ uploadHint }}</p>
       <NProgress v-if="uploading" class="drop__progress" type="line" :percentage="progress" :show-indicator="false" processing />
     </section>
 

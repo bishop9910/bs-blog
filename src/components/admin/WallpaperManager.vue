@@ -21,14 +21,17 @@ import {
   PhTrash,
 } from '@phosphor-icons/vue'
 import MediaPicker from './MediaPicker.vue'
-
-/** Mirrors maxWallpapers in backend/internal/biz/site.go. */
-const MAX_WALLPAPERS = 24
+import { useLimits } from '@/composables/useLimits'
 
 const props = defineProps<{ modelValue: string[] }>()
 const emit = defineEmits<{ 'update:modelValue': [value: string[]] }>()
 
 const message = useMessage()
+
+// site.maxWallpapers in config.yaml, read back through GET /admin/limits so the
+// counter and the server agree; the fallback covers the request in flight.
+const { limits, load: loadLimits } = useLimits()
+const maxWallpapers = computed(() => limits.value.site.maxWallpapers)
 
 const pickerOpen = ref(false)
 const previewOpen = ref(false)
@@ -36,7 +39,9 @@ const previewUrl = ref('')
 const draft = ref('')
 
 const list = computed(() => props.modelValue)
-const full = computed(() => list.value.length >= MAX_WALLPAPERS)
+const full = computed(() => list.value.length >= maxWallpapers.value)
+
+void loadLimits()
 
 function commit(next: string[]): void {
   // De-duplicate on every write: the same image twice in the rotation is a
@@ -45,9 +50,9 @@ function commit(next: string[]): void {
 }
 
 function addFromLibrary(urls: string[]): void {
-  const room = MAX_WALLPAPERS - list.value.length
+  const room = maxWallpapers.value - list.value.length
   if (urls.length > room) {
-    message.warning(`最多只能添加 ${MAX_WALLPAPERS} 张壁纸，多出的部分没有加入`)
+    message.warning(`最多只能添加 ${maxWallpapers.value} 张壁纸，多出的部分没有加入`)
   }
   commit([...list.value, ...urls.slice(0, Math.max(0, room))])
 }
@@ -56,7 +61,7 @@ function addDraft(): void {
   const url = draft.value.trim()
   if (!url) return
   if (full.value) {
-    message.warning(`最多只能添加 ${MAX_WALLPAPERS} 张壁纸`)
+    message.warning(`最多只能添加 ${maxWallpapers.value} 张壁纸`)
     return
   }
   if (!/^(https?:\/\/|\/)/i.test(url)) {
@@ -93,7 +98,7 @@ function preview(url: string): void {
   <div class="wallpapers">
     <p class="wallpapers__hint">
       每次打开站点会从下面随机挑一张作为整站背景。添加的图片同时会留在媒体库里。
-      <strong>{{ list.length }} / {{ MAX_WALLPAPERS }}</strong>
+      <strong>{{ list.length }} / {{ maxWallpapers }}</strong>
     </p>
 
     <div class="wallpapers__grid">
@@ -139,6 +144,7 @@ function preview(url: string): void {
     <div class="wallpapers__url">
       <NInput
         v-model:value="draft"
+        :maxlength="limits.site.maxWallpaperLength"
         placeholder="/uploads/… 或 https://…"
         @keydown.enter="addDraft"
       >

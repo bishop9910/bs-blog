@@ -10,18 +10,31 @@ import (
 	"github.com/bishop9910/bs-blog/backend/internal/model"
 )
 
-// Field limits, chosen to fit the columns declared in internal/model.
-const (
-	maxSocials        = 12
-	maxWallpapers     = 24
-	maxWallpaperRunes = 512
-	maxTitleRunes     = 60
-	maxTaglineRunes   = 100
-	maxDescRunes      = 300
-	maxAuthorRunes    = 40
-	maxFooterRunes    = 120
-	maxLabelRunes     = 40
-)
+// SiteLimits bounds everything the settings page may store.
+//
+// Two of these come from config.yaml (site.maxWallpapers and
+// site.maxWallpaperLength) because they are worth tuning per deployment. The
+// rest are matched to the column sizes declared in internal/model and stay code
+// constants — but they are still reported through GET /admin/limits, so the
+// settings form can pre-check without duplicating the numbers.
+//
+// The values live on SiteLimitsDTO so the settings page reads back exactly what
+// is enforced here.
+
+// DefaultSiteLimits is the schema-matched field policy.
+func DefaultSiteLimits() SiteLimitsDTO {
+	return SiteLimitsDTO{
+		MaxSocials:           12,
+		MaxWallpapers:        24,
+		MaxWallpaperLength:   512,
+		MaxTitleLength:       60,
+		MaxTaglineLength:     100,
+		MaxDescriptionLength: 300,
+		MaxAuthorLength:      40,
+		MaxFooterLength:      120,
+		MaxSocialLabelLength: 40,
+	}
+}
 
 // knownSocialIcons keeps the frontend's icon lookup total. An unrecognised key
 // is downgraded rather than dropped, so a link never disappears from the page
@@ -36,13 +49,45 @@ var knownSocialIcons = map[string]struct{}{
 
 // SiteUsecase reads and writes the site's singleton metadata.
 type SiteUsecase struct {
-	store *data.Store
+	store  *data.Store
+	limits SiteLimitsDTO
 }
 
-// NewSiteUsecase wires the use case.
-func NewSiteUsecase(store *data.Store) *SiteUsecase {
-	return &SiteUsecase{store: store}
+// NewSiteUsecase wires the use case. Limits that are not set fall back to the
+// defaults, so a zero value cannot silently disable a field.
+func NewSiteUsecase(store *data.Store, limits SiteLimitsDTO) *SiteUsecase {
+	defaults := DefaultSiteLimits()
+	if limits.MaxSocials <= 0 {
+		limits.MaxSocials = defaults.MaxSocials
+	}
+	if limits.MaxWallpaperLength <= 0 {
+		limits.MaxWallpaperLength = defaults.MaxWallpaperLength
+	}
+	if limits.MaxTitleLength <= 0 {
+		limits.MaxTitleLength = defaults.MaxTitleLength
+	}
+	if limits.MaxTaglineLength <= 0 {
+		limits.MaxTaglineLength = defaults.MaxTaglineLength
+	}
+	if limits.MaxDescriptionLength <= 0 {
+		limits.MaxDescriptionLength = defaults.MaxDescriptionLength
+	}
+	if limits.MaxAuthorLength <= 0 {
+		limits.MaxAuthorLength = defaults.MaxAuthorLength
+	}
+	if limits.MaxFooterLength <= 0 {
+		limits.MaxFooterLength = defaults.MaxFooterLength
+	}
+	if limits.MaxSocialLabelLength <= 0 {
+		limits.MaxSocialLabelLength = defaults.MaxSocialLabelLength
+	}
+	// MaxWallpapers is deliberately left alone: 0 is a meaningful setting that
+	// turns the wallpaper pool off.
+	return &SiteUsecase{store: store, limits: limits}
 }
+
+// Limits reports the effective field policy for the settings page.
+func (uc *SiteUsecase) Limits() SiteLimitsDTO { return uc.limits }
 
 // Get returns the public site metadata, including aggregate stats.
 func (uc *SiteUsecase) Get(ctx context.Context) (*SiteMetaDTO, error) {
@@ -72,27 +117,27 @@ func (uc *SiteUsecase) Update(ctx context.Context, in SiteInput) (*SiteMetaDTO, 
 	// An empty title falls back to the stored one rather than failing: the
 	// frontend's update payload is typed as Partial<SiteMeta>, so a field the
 	// caller did not include arrives empty and must not read as "clear it".
-	title := truncateRunes(strings.TrimSpace(in.Title), maxTitleRunes)
+	title := truncateRunes(strings.TrimSpace(in.Title), uc.limits.MaxTitleLength)
 	if title == "" {
 		title = profile.Title
 	}
 
-	socials, err := json.Marshal(normaliseSocials(in.Socials))
+	socials, err := json.Marshal(uc.normaliseSocials(in.Socials))
 	if err != nil {
 		return nil, internal("无法保存社交链接", err)
 	}
 
-	wallpapers, err := json.Marshal(normaliseWallpapers(in.Wallpapers))
+	wallpapers, err := json.Marshal(uc.normaliseWallpapers(in.Wallpapers))
 	if err != nil {
 		return nil, internal("无法保存壁纸列表", err)
 	}
 
 	profile.Title = title
-	profile.Tagline = truncateRunes(strings.TrimSpace(in.Tagline), maxTaglineRunes)
-	profile.Description = truncateRunes(strings.TrimSpace(in.Description), maxDescRunes)
-	profile.Author = truncateRunes(strings.TrimSpace(in.Author), maxAuthorRunes)
+	profile.Tagline = truncateRunes(strings.TrimSpace(in.Tagline), uc.limits.MaxTaglineLength)
+	profile.Description = truncateRunes(strings.TrimSpace(in.Description), uc.limits.MaxDescriptionLength)
+	profile.Author = truncateRunes(strings.TrimSpace(in.Author), uc.limits.MaxAuthorLength)
 	profile.AvatarURL = strings.TrimSpace(in.AvatarURL)
-	profile.FooterNote = truncateRunes(strings.TrimSpace(in.FooterNote), maxFooterRunes)
+	profile.FooterNote = truncateRunes(strings.TrimSpace(in.FooterNote), uc.limits.MaxFooterLength)
 	profile.Wallpapers = string(wallpapers)
 	profile.Socials = string(socials)
 
@@ -142,11 +187,11 @@ func toSiteMetaDTO(profile model.SiteProfile, stats data.Stats) *SiteMetaDTO {
 // Links that fail URL validation are dropped rather than stored: an entry that
 // cannot be rendered safely is worse than an absent one, and the settings form
 // shows the resulting list so the owner notices immediately.
-func normaliseSocials(in []SocialLinkDTO) []SocialLinkDTO {
+func (uc *SiteUsecase) normaliseSocials(in []SocialLinkDTO) []SocialLinkDTO {
 	out := make([]SocialLinkDTO, 0, len(in))
 
 	for _, link := range in {
-		if len(out) >= maxSocials {
+		if len(out) >= uc.limits.MaxSocials {
 			break
 		}
 
@@ -160,7 +205,7 @@ func normaliseSocials(in []SocialLinkDTO) []SocialLinkDTO {
 			icon = "link"
 		}
 
-		label := truncateRunes(strings.TrimSpace(link.Label), maxLabelRunes)
+		label := truncateRunes(strings.TrimSpace(link.Label), uc.limits.MaxSocialLabelLength)
 		if label == "" {
 			label = icon
 		}
@@ -176,16 +221,19 @@ func normaliseSocials(in []SocialLinkDTO) []SocialLinkDTO {
 // Order is preserved: the owner may deliberately put a favourite first, and the
 // admin list is the only place that order is visible. Duplicates are dropped
 // because a repeated URL would silently skew the random pick.
-func normaliseWallpapers(in []string) []string {
+//
+// A limit of 0 is not a bug: it is how the pool is switched off, and it yields
+// an empty list rather than an error.
+func (uc *SiteUsecase) normaliseWallpapers(in []string) []string {
 	out := make([]string, 0, len(in))
 	seen := make(map[string]struct{}, len(in))
 
 	for _, raw := range in {
-		if len(out) >= maxWallpapers {
+		if len(out) >= uc.limits.MaxWallpapers {
 			break
 		}
 
-		target := truncateRunes(strings.TrimSpace(raw), maxWallpaperRunes)
+		target := truncateRunes(strings.TrimSpace(raw), uc.limits.MaxWallpaperLength)
 		if target == "" || !isSafeImageTarget(target) {
 			continue
 		}

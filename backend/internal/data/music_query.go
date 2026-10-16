@@ -83,7 +83,7 @@ func (r *MusicRepo) Cover(_ context.Context, id string) (*MusicCover, error) {
 		return nil, ErrNotFound
 	}
 
-	data, mime, err := resolveCover(r.root, track.Path)
+	data, mime, err := r.resolveCover(track.Path)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, ErrNotFound
@@ -119,8 +119,8 @@ func (r *MusicRepo) Lyrics(_ context.Context, id string) (string, error) {
 				r.logger.Warnf("data: ignoring sidecar lyrics of %s: %v", track.Path, err)
 				return "", nil
 			}
-			return readLyrics(full), nil
+			return r.readLyrics(full), nil
 		}
 	}
-	return readLyrics(lyricsPath(track.Path)), nil
+	return r.readLyrics(lyricsPath(track.Path)), nil
 }
