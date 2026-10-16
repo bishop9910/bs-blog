@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { listPublished, listTags } from '@/api/posts'
 import type { PostSummary, Tag } from '@/types/blog'
+import { motionStagger, reduceMotion, utils } from '@/utils/anime'
 import EmptyState from '@/components/EmptyState.vue'
 import PostCard from '@/components/PostCard.vue'
 import TagPill from '@/components/TagPill.vue'
@@ -65,6 +66,58 @@ function goTo(target: number) {
   void router.push({ query: { ...route.query, page: String(clamped) } })
 }
 
+const grid = ref<HTMLElement | null>(null)
+
+/** Cards past this point appear with the others instead of trailing the wave. */
+const CARD_WAVE_LIMIT = 12
+
+let cardAnim: ReturnType<typeof motionStagger> = null
+
+/**
+ * Stagger in the current page of cards.
+ *
+ * The cards are taken over from `v-reveal` (which PostCard owns) by dropping
+ * `.reveal`: that class is `opacity: 0` plus a CSS transition, and a CSS
+ * transition on the same properties smears anime.js's per-frame writes. The
+ * start state is then written by `utils.set` in the same frame — never from CSS
+ * and only after the reduced-motion check, so if the animation never runs the
+ * list is simply visible.
+ */
+function playCards() {
+  // The previous wave may still be running on nodes the loading skeleton removed.
+  cardAnim?.cancel()
+  const cards = Array.from(grid.value?.querySelectorAll<HTMLElement>('[data-motion-card]') ?? [])
+  for (const card of cards) {
+    card.removeAttribute('data-motion-card')
+    card.classList.remove('reveal')
+  }
+  if (cards.length === 0 || reduceMotion()) return
+
+  const wave = cards.slice(0, CARD_WAVE_LIMIT)
+  utils.set(wave, { opacity: 0, translateY: '22px' })
+
+  const animation = motionStagger(
+    wave,
+    { opacity: [0, 1], translateY: [22, 0], scale: [0.985, 1] },
+    { each: 55 },
+  )
+  cardAnim = animation
+  if (!animation) return
+
+  void animation.then(() => {
+    // Clear the inline writes when the wave settles: an inline transform outranks
+    // `.card:hover`, so leaving it would kill the hover lift.
+    for (const card of wave) {
+      card.style.removeProperty('opacity')
+      card.style.removeProperty('transform')
+    }
+  })
+}
+
+onBeforeUnmount(() => {
+  cardAnim?.cancel()
+})
+
 watch(
   () => route.fullPath,
   () => {
@@ -72,6 +125,10 @@ watch(
   },
   { immediate: true },
 )
+
+// Every page turning over re-renders the grid, so the wave follows the data
+// rather than mount: `flush: 'post'` guarantees the new cards are in the DOM.
+watch(() => posts.value, () => playCards(), { flush: 'post' })
 
 onMounted(async () => {
   try {
@@ -116,8 +173,8 @@ onMounted(async () => {
       description="换个标签，或者稍后再来。"
     />
 
-    <div v-else class="grid">
-      <PostCard v-for="post in posts" :key="post.id" :post="post" />
+    <div v-else ref="grid" class="grid">
+      <PostCard v-for="post in posts" :key="post.id" data-motion-card :post="post" />
     </div>
 
     <nav v-if="!loading && totalPages > 1" class="pager" aria-label="分页">

@@ -17,8 +17,10 @@ server:
   writeTimeout: 120s
   # Keep-alive window.
   idleTimeout: 120s
-  # Hard cap on every request body, uploads included. 12 MiB.
-  maxBodyBytes: 12582912
+  # Hard cap on every request body, uploads included. 32 MiB: an audio upload
+  # goes through this filter, and a FLAC album track is easily larger than the
+  # 12 MiB an image-only site needed.
+  maxBodyBytes: 33554432
   # Where the pages come from. Empty means the frontend embedded in the binary
   # (built by backend/scripts/build-release.ps1) -- the normal setting for a
   # released executable, which needs no dist directory on disk. Set a path to
@@ -41,6 +43,32 @@ data:
   uploadUrl: "/uploads"
   # Per-image ceiling. Must stay below server.maxBodyBytes.
   maxUploadBytes: 10485760
+
+music:
+  # Directory scanned for audio files, recursively. It is created by the first
+  # upload, so it does not have to exist. Leave the value empty to disable the
+  # music library entirely: the routes stay registered and answer with an empty
+  # listing instead of failing.
+  dir: "data/music"
+  # Extensions indexed, without the leading dot. Dropping one here keeps those
+  # files out of the listing without deleting anything. An empty list falls back
+  # to mp3/flac/m4a/m4b/ogg/opus/wav.
+  extensions:
+    - "mp3"
+    - "flac"
+    - "m4a"
+    - "m4b"
+    - "ogg"
+    - "opus"
+    - "wav"
+  # Rescan a couple of seconds after the directory changes. Handy while copying
+  # an album in; turn it off on a network share that floods the filesystem with
+  # events.
+  watch: true
+  # Per-audio-file ceiling for uploads, 32 MiB. Must stay at or below
+  # server.maxBodyBytes: the body filter runs first, so a larger value here could
+  # never be reached.
+  maxUploadBytes: 33554432
 
 auth:
   # Optional hex-encoded signing key, at least 32 bytes. Leave empty to use

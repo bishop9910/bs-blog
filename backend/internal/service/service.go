@@ -36,6 +36,7 @@ type Handler struct {
 	posts *biz.PostUsecase
 	media *biz.MediaUsecase
 	site  *biz.SiteUsecase
+	music *biz.MusicUsecase
 
 	maxBody        int64
 	corsEnabled    bool
@@ -50,6 +51,7 @@ func NewHandler(
 	posts *biz.PostUsecase,
 	media *biz.MediaUsecase,
 	site *biz.SiteUsecase,
+	music *biz.MusicUsecase,
 	cfg *conf.Config,
 	logger log.Logger,
 ) *Handler {
@@ -72,6 +74,7 @@ func NewHandler(
 		posts:          posts,
 		media:          media,
 		site:           site,
+		music:          music,
 		maxBody:        cfg.Server.MaxBodyBytes,
 		corsEnabled:    cfg.CORS.Enabled,
 		allowAnyOrigin: allowAny,
@@ -127,6 +130,22 @@ func (h *Handler) Register(srv *khttp.Server) {
 	h.route(r, http.MethodGet, "/admin/media", h.authed(h.listMedia))
 	h.route(r, http.MethodPost, "/admin/media", h.authed(h.uploadMedia))
 	h.route(r, http.MethodDelete, "/admin/media/{id}", h.authed(h.deleteMedia))
+
+	// Public music library. Listening needs no session: the audio routes carry
+	// no token, which is what lets an <audio> element and the Web Audio API read
+	// the same bytes the page's own origin served.
+	h.route(r, http.MethodGet, "/music/library", h.getMusicLibrary)
+	h.route(r, http.MethodGet, "/music/stream/{id}", h.streamMusic)
+	h.route(r, http.MethodHead, "/music/stream/{id}", h.streamMusic)
+	h.route(r, http.MethodGet, "/music/cover/{id}", h.coverMusic)
+	h.route(r, http.MethodHead, "/music/cover/{id}", h.coverMusic)
+	h.route(r, http.MethodGet, "/music/tracks/{id}/lyrics", h.musicLyrics)
+
+	// Admin: music library.
+	h.route(r, http.MethodGet, "/admin/music", h.authed(h.adminMusic))
+	h.route(r, http.MethodPost, "/admin/music/rescan", h.authed(h.rescanMusic))
+	h.route(r, http.MethodPost, "/admin/music/upload", h.authed(h.uploadMusic))
+	h.route(r, http.MethodDelete, "/admin/music/{id}", h.authed(h.deleteMusic))
 
 	// Admin: site metadata.
 	h.route(r, http.MethodPut, "/admin/site", h.authed(h.updateSite))

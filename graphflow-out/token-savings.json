@@ -1,11 +1,11 @@
 {
-  "totalRuns": 1,
-  "totalRawTokens": 12416,
-  "totalCompressedTokens": 539,
-  "totalSavedTokens": 11877,
-  "averageSavingsPercent": 96,
+  "totalRuns": 2,
+  "totalRawTokens": 17089,
+  "totalCompressedTokens": 1163,
+  "totalSavedTokens": 15926,
+  "averageSavingsPercent": 93,
   "firstRunAt": "2026-10-14T05:42:02.406Z",
-  "lastRunAt": "2026-10-14T05:42:02.406Z",
+  "lastRunAt": "2026-10-15T15:01:53.945Z",
   "records": [
     {
       "timestamp": "2026-10-14T05:42:02.406Z",
@@ -15,9 +15,27 @@
       "savingsPercent": 96,
       "source": "preview_context",
       "kind": "tokens-not-fidelity"
+    },
+    {
+      "timestamp": "2026-10-15T15:01:53.945Z",
+      "query": "blog wallpaper avatar admin random display, music player frontend, backend architecture Go service",
+      "rawTokens": 4673,
+      "compressedTokens": 624,
+      "savingsPercent": 87,
+      "source": "preview_context",
+      "kind": "tokens-not-fidelity"
     }
   ],
   "recentRecords": [
+    {
+      "timestamp": "2026-10-15T15:01:53.945Z",
+      "query": "blog wallpaper avatar admin random display, music player frontend, backend architecture Go service",
+      "rawTokens": 4673,
+      "compressedTokens": 624,
+      "savingsPercent": 87,
+      "source": "preview_context",
+      "kind": "tokens-not-fidelity"
+    },
     {
       "timestamp": "2026-10-14T05:42:02.406Z",
       "query": "文章发布后前台页面看不到，博客文章列表加载逻辑",

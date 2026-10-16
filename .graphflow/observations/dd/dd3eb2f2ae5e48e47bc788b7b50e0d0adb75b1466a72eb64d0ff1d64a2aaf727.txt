@@ -1,0 +1,266 @@
+<path>C:\Users\bisho\Desktop\bs-blog\src\components\music\MusicLyrics.vue</path>
+<type>file</type>
+<content>
+1: <script setup lang="ts">
+2: /**
+3:  * Lyrics panel.
+4:  *
+5:  * Timed LRC lines scroll to keep the active one centred; untimed lyrics still
+6:  * render, with the offset hint dropped, because a lyrics file without
+7:  * timestamps is still more useful than an empty box.
+8:  *
+9:  * Lines are never truncated — a wrapped lyric beats an ellipsis, and the row
+10:  * grows to fit rather than clipping.
+11:  *
+12:  * A bilingual file gives one line a translation as well as its original; the
+13:  * pair travels as one clickable row, with the translation set smaller, dimmer
+14:  * and one step quieter while the active pair is highlighted together.
+15:  */
+16: import { computed, nextTick, ref, watch } from 'vue'
+17: import { PhMusicNotes } from '@phosphor-icons/vue'
+18: import { useMusic } from '@/composables/useMusic'
+19: 
+20: const { lyrics, plainLyrics, lyricsLoading, activeLyricIndex, current, seek } = useMusic()
+21: 
+22: const scroller = ref<HTMLElement | null>(null)
+23: 
+24: const hasTimed = computed(() => lyrics.value.length > 0)
+25: const hasPlain = computed(() => lyrics.value.length === 0 && plainLyrics.value.length > 0)
+26: const isEmpty = computed(() => !hasTimed.value && !hasPlain.value)
+27: 
+28: const reduced =
+29:   typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+30: 
+31: function scrollToActive(): void {
+32:   const el = scroller.value
+33:   if (!el || activeLyricIndex.value < 0) return
+34: 
+35:   const line = el.querySelector<HTMLElement>(`[data-line="${activeLyricIndex.value}"]`)
+36:   if (!line) return
+37: 
+38:   // Scroll the container rather than calling scrollIntoView: the latter walks up
+39:   // and scrolls ancestors too, which would jerk the whole page.
+40:   const top = line.offsetTop - el.clientHeight / 2 + line.offsetHeight / 2
+41:   el.scrollTo({ top: Math.max(0, top), behavior: reduced ? 'auto' : 'smooth' })
+42: }
+43: 
+44: watch(activeLyricIndex, () => {
+45:   void nextTick(scrollToActive)
+46: })
+47: 
+48: // A new track starts from the top, not from wherever the last one ended.
+49: watch(current, () => {
+50:   const el = scroller.value
+51:   if (el) el.scrollTop = 0
+52: })
+53: 
+54: function jumpTo(index: number): void {
+55:   const line = lyrics.value[index]
+56:   if (!line) return
+57:   seek(line.time / 1000)
+58: }
+59: </script>
+60: 
+61: <template>
+62:   <div ref="scroller" class="lyrics" :class="{ 'lyrics--plain': hasPlain }">
+63:     <template v-if="hasTimed">
+64:       <button
+65:         v-for="(line, index) in lyrics"
+66:         :key="`${line.time}-${index}`"
+67:         type="button"
+68:         class="lyrics__line"
+69:         :class="{
+70:           'is-active': index === activeLyricIndex,
+71:           'is-past': index < activeLyricIndex,
+72:         }"
+73:         :data-line="index"
+74:         :aria-current="index === activeLyricIndex ? 'true' : undefined"
+75:         @click="jumpTo(index)"
+76:       >
+77:         <span class="lyrics__text">{{ line.text }}</span>
+78:         <span v-if="line.translation" class="lyrics__translation">
+79:           <!--
+80:             A bilingual file can stack several translations on one timestamp;
+81:             the parser keeps them apart with newlines, so each one is its own
+82:             row here instead of relying on whitespace handling.
+83:           -->
+84:           <span
+85:             v-for="(part, partIndex) in line.translation.split('\n')"
+86:             :key="partIndex"
+87:             class="lyrics__translation-line"
+88:           >{{ part }}</span>
+89:         </span>
+90:       </button>
+91:     </template>
+92: 
+93:     <p v-else-if="hasPlain" v-for="(line, index) in plainLyrics" :key="index" class="lyrics__plain">
+94:       {{ line }}
+95:     </p>
+96: 
+97:     <div v-else-if="lyricsLoading" class="lyrics__empty">
+98:       <span class="lyrics__skeleton" />
+99:       <span class="lyrics__skeleton lyrics__skeleton--short" />
+100:       <span class="lyrics__skeleton" />
+101:     </div>
+102: 
+103:     <div v-else-if="isEmpty" class="lyrics__empty lyrics__empty--message">
+104:       <PhMusicNotes :size="22" weight="duotone" />
+105:       <p>暂无歌词</p>
+106:       <small>把同名 .lrc 文件放在音频旁边即可显示</small>
+107:     </div>
+108:   </div>
+109: </template>
+110: 
+111: <style scoped>
+112: .lyrics {
+113:   position: relative;
+114:   flex: 1;
+115:   min-height: 0;
+116:   overflow-y: auto;
+117:   overscroll-behavior: contain;
+118:   scrollbar-width: thin;
+119:   /* Generous end padding lets the first and last lines reach the centre line. */
+120:   padding-block: 40%;
+121:   mask-image: linear-gradient(180deg, transparent, #000 14%, #000 86%, transparent);
+122: }
+123: 
+124: .lyrics__line {
+125:   display: block;
+126:   width: 100%;
+127:   padding: var(--space-xs) var(--space-sm);
+128:   border: 0;
+129:   border-radius: var(--radius-sm);
+130:   background: none;
+131:   color: var(--text-muted);
+132:   font-size: var(--text-sm);
+133:   line-height: var(--leading-normal);
+134:   text-align: left;
+135:   cursor: pointer;
+136:   transition:
+137:     color var(--dur-normal) var(--ease-out),
+138:     transform var(--dur-normal) var(--ease-out),
+139:     opacity var(--dur-normal) var(--ease-out);
+140: }
+141: 
+142: /* No ellipsis, ever: a long lyric or a long translation wraps and the row grows
+143:    to fit instead of clipping the words the reader came here for. */
+144: .lyrics__text,
+145: .lyrics__translation-line {
+146:   display: block;
+147:   white-space: normal;
+148:   overflow-wrap: anywhere;
+149: }
+150: 
+151: .lyrics__translation {
+152:   display: block;
+153:   margin-top: 2px;
+154:   color: var(--text-muted);
+155:   font-size: var(--text-2xs);
+156:   line-height: var(--leading-normal);
+157: }
+158: 
+159: .lyrics__line:hover {
+160:   color: var(--text-secondary);
+161: }
+162: 
+163: .lyrics__line:focus-visible {
+164:   outline: 2px solid var(--accent);
+165:   outline-offset: 2px;
+166: }
+167: 
+168: .lyrics__line.is-past {
+169:   opacity: 0.55;
+170: }
+171: 
+172: .lyrics__line.is-active {
+173:   transform: translateX(2px);
+174: }
+175: 
+176: /* The original carries the emphasis; the translation is highlighted in step
+177:    with it, but smaller and without the glow, so the pair reads as one line. */
+178: .lyrics__line.is-active .lyrics__text {
+179:   color: var(--text-primary);
+180:   font-size: var(--text-base);
+181:   font-weight: 600;
+182:   text-shadow: 0 0 22px color-mix(in srgb, var(--accent) 45%, transparent);
+183: }
+184: 
+185: .lyrics__line.is-active .lyrics__translation {
+186:   color: var(--accent);
+187:   font-weight: 500;
+188: }
+189: 
+190: .lyrics__line.is-active .lyrics__translation-line {
+191:   opacity: 0.9;
+192: }
+193: 
+194: .lyrics__plain {
+195:   padding: var(--space-2xs) var(--space-sm);
+196:   color: var(--text-secondary);
+197:   font-size: var(--text-sm);
+198:   line-height: var(--leading-relaxed);
+199:   overflow-wrap: anywhere;
+200: }
+201: 
+202: .lyrics__empty {
+203:   display: flex;
+204:   flex-direction: column;
+205:   gap: var(--space-xs);
+206:   padding: var(--space-sm);
+207: }
+208: 
+209: .lyrics__empty--message {
+210:   align-items: center;
+211:   justify-content: center;
+212:   gap: var(--space-2xs);
+213:   min-height: 100%;
+214:   color: var(--text-muted);
+215:   text-align: center;
+216: }
+217: 
+218: .lyrics__empty--message p {
+219:   font-size: var(--text-sm);
+220: }
+221: 
+222: .lyrics__empty--message small {
+223:   font-size: var(--text-2xs);
+224:   opacity: 0.75;
+225: }
+226: 
+227: .lyrics__skeleton {
+228:   height: 12px;
+229:   border-radius: var(--radius-full);
+230:   background: linear-gradient(
+231:     90deg,
+232:     var(--bg-hover),
+233:     color-mix(in srgb, var(--accent) 24%, var(--bg-hover)),
+234:     var(--bg-hover)
+235:   );
+236:   background-size: 200% 100%;
+237:   animation: lyrics-shimmer 1.6s linear infinite;
+238: }
+239: 
+240: .lyrics__skeleton--short {
+241:   width: 62%;
+242: }
+243: 
+244: @keyframes lyrics-shimmer {
+245:   from {
+246:     background-position: 200% 0;
+247:   }
+248:   to {
+249:     background-position: -200% 0;
+250:   }
+251: }
+252: 
+253: @media (prefers-reduced-motion: reduce) {
+254:   .lyrics__line,
+255:   .lyrics__skeleton {
+256:     transition: none;
+257:     animation: none;
+258:   }
+259: }
+260: </style>
+
+(End of file - total 260 lines)
+</content>

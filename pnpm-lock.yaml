@@ -53,6 +53,9 @@ importers:
       '@tsparticles/vue3':
         specifier: ^4.4.0
         version: 4.4.0(@tsparticles/engine@4.4.0)(vue@3.5.43(typescript@6.0.3))
+      animejs:
+        specifier: ^4.5.0
+        version: 4.5.0
       chinese-days:
         specifier: ^1.5.9
         version: 1.5.9
@@ -937,6 +940,17 @@ packages:
 
   alien-signals@3.2.1:
     resolution: {integrity: sha512-I8FjmltrfnDFoZedi5CG8DghVYNhzb/Ijluz7tCSJH0xpd0484Kowhbb1XDYOxfJpU1p5wnM2X54dA+IfGyD1g==}
+
+  animejs@4.5.0:
+    resolution: {integrity: sha512-NQimYX+lz8WaXonGS9zVVoviCIAjONeJayxacUditaivYLqyXgGjFKjuyl0aUUhFKm5MriX9ty1TGovNzoJQWA==}
+    peerDependencies:
+      '@types/three': '>=0.150.0'
+      three: '>=0.150.0'
+    peerDependenciesMeta:
+      '@types/three':
+        optional: true
+      three:
+        optional: true
 
   ansi-styles@7.0.0:
     resolution: {integrity: sha512-kKvt3m4uwzqL0wlkPd09CmljPJGOZZ4D0fP65sqFSvPkMRKhNi+74MgIJ5QxE6SxqB4t4KyUFGg8+n5zjo6hew==}
@@ -2564,6 +2578,8 @@ snapshots:
   acorn@8.18.0: {}
 
   alien-signals@3.2.1: {}
+
+  animejs@4.5.0: {}
 
   ansi-styles@7.0.0: {}
 

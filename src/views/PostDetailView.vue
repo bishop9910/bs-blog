@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import {
   PhArrowLeft,
   PhArrowRight,
@@ -13,11 +13,14 @@ import { ApiError } from '@/api/http'
 import type { PostDetail } from '@/types/blog'
 import { useHighlightedHtml } from '@/composables/useHighlight'
 import { useSite } from '@/composables/useSite'
-import { resetScroll } from '@/composables/useSmoothScroll'
+import { prefersReducedMotion, resetScroll } from '@/composables/useSmoothScroll'
+import { motion } from '@/utils/anime'
 import { sanitizeHtml } from '@/utils/sanitize'
 import { formatCount, formatDateLong } from '@/utils/format'
 import AuthorAvatar from '@/components/AuthorAvatar.vue'
 import EmptyState from '@/components/EmptyState.vue'
+import PostToc from '@/components/PostToc.vue'
+import ReadingProgress from '@/components/ReadingProgress.vue'
 import SocialLinks from '@/components/SocialLinks.vue'
 import TagPill from '@/components/TagPill.vue'
 
@@ -30,19 +33,50 @@ const detail = ref<PostDetail | null>(null)
 const loading = ref(true)
 const notFound = ref(false)
 const error = ref('')
-const progress = ref(0)
 const copied = ref(false)
+const showBackToTop = ref(false)
 
 const post = computed(() => detail.value?.post ?? null)
 const nav = computed(() => detail.value?.nav ?? {})
 
 const content = useHighlightedHtml(() => sanitizeHtml(post.value?.contentHtml ?? ''))
 
-function onScroll() {
-  const root = document.documentElement
-  const max = root.scrollHeight - root.clientHeight
-  progress.value = max > 0 ? Math.min(1, root.scrollTop / max) : 0
+/** The rendered article body: the reading bar measures it, the TOC reads it. */
+const bodyEl = ref<HTMLElement | null>(null)
+
+/**
+ * Both children need that element, and neither can take it as a prop: a
+ * template ref is filled during the patch that mounts the body, which happens
+ * *after* their props are evaluated — and assigning a ref never re-renders this
+ * component, so the prop would stay null. They get a getter and read it lazily.
+ */
+function resolveBody(): HTMLElement | null {
+  return bodyEl.value
 }
+
+const backToTop = ref<HTMLElement | null>(null)
+
+function onScroll() {
+  // One viewport of scrolling: past that the start of the article is out of
+  // reach, and offering a way back to it is worth the pixels.
+  showBackToTop.value = window.scrollY > window.innerHeight
+}
+
+function toTop() {
+  // Same engine as the footer's button, but it jumps instead of gliding for
+  // anyone who asked for less motion.
+  resetScroll(prefersReducedMotion())
+}
+
+watch(showBackToTop, async (visible) => {
+  if (!visible) return
+  await nextTick()
+  const button = backToTop.value
+  if (!button) return
+  // Fade and lift on the way in. Under reduced motion `motion` is a no-op and
+  // the button is simply already where it belongs.
+  motion(button, { opacity: [0, 1], translateY: [12, 0], duration: 360 })
+})
 
 async function load(slug: string) {
   loading.value = true
@@ -96,9 +130,7 @@ onBeforeUnmount(() => {
 
 <template>
   <article class="post">
-    <div class="progress" aria-hidden="true">
-      <span class="progress__bar" :style="{ transform: `scaleX(${progress})` }" />
-    </div>
+    <ReadingProgress :resolve-target="resolveBody" />
 
     <div v-if="loading" class="post__inner">
       <div class="skeleton skeleton--title" />
@@ -144,8 +176,12 @@ onBeforeUnmount(() => {
         </div>
       </header>
 
+      <!-- Keyed on the slug: the wrapper below outlives a navigation, and the
+           contents must be collected again for the new post's headings. -->
+      <PostToc :key="post.slug" :resolve-content="resolveBody" />
+
       <!-- Sanitised on the server, again in sanitizeHtml, then re-highlighted. -->
-      <div class="prose post__body" v-html="content" />
+      <div ref="bodyEl" class="prose post__body" v-html="content" />
 
       <footer class="post__foot">
         <section v-if="authorName" class="post__author-card">
@@ -167,7 +203,7 @@ onBeforeUnmount(() => {
             <component :is="copied ? PhCheck : PhLink" :size="16" />
             {{ copied ? '已复制' : '复制链接' }}
           </button>
-          <button class="btn btn--sm" type="button" @click="resetScroll(false)">
+          <button class="btn btn--sm" type="button" @click="toTop">
             <PhArrowUp :size="16" />
             回到顶部
           </button>
@@ -194,29 +230,57 @@ onBeforeUnmount(() => {
           </RouterLink>
         </nav>
       </footer>
+
+      <!-- Floating shortcut for a reader in the middle of a long post; the
+           footer keeps its own inline button for readers who reached the end. -->
+      <button
+        v-if="showBackToTop"
+        ref="backToTop"
+        class="to-top"
+        type="button"
+        aria-label="回到顶部"
+        @click="toTop"
+      >
+        <PhArrowUp :size="16" aria-hidden="true" />
+        <span>回到顶部</span>
+      </button>
     </template>
   </article>
 </template>
 
 <style scoped>
-.progress {
+/* The reading bar lives in ReadingProgress; this is the floating shortcut that
+   appears once the start of the post is a viewport behind the reader. */
+.to-top {
   position: fixed;
-  top: 0;
-  left: 0;
-  z-index: var(--z-overlay);
-  width: 100%;
-  height: 2px;
-  pointer-events: none;
+  right: var(--space-lg);
+  bottom: var(--space-lg);
+  z-index: calc(var(--z-sticky) - 1);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  min-height: var(--hit-min);
+  padding: 0 var(--space-md);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--bg-elevated) 88%, transparent);
+  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(10px);
+  color: var(--text-secondary);
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-wide);
+  cursor: pointer;
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    background var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
 }
 
-.progress__bar {
-  display: block;
-  width: 100%;
-  height: 100%;
-  background: var(--accent);
-  box-shadow: 0 0 10px var(--glow-accent);
-  transform: scaleX(0);
-  transform-origin: left center;
+.to-top:hover {
+  border-color: var(--border-accent);
+  background: var(--bg-hover);
+  color: var(--accent);
 }
 
 .post__inner,

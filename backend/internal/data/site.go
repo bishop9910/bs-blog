@@ -14,6 +14,9 @@ import (
 // DefaultSocials is the empty social link list, stored as a JSON string.
 const DefaultSocials = "[]"
 
+// DefaultWallpapers is the empty wallpaper pool, stored as a JSON string.
+const DefaultWallpapers = "[]"
+
 // GetSiteProfile returns the singleton site profile, creating a sensible
 // default row the first time it is asked for. A personal blog with one owner
 // does not need a separate "has the site been configured" flag; the row's
@@ -34,6 +37,7 @@ func (s *Store) GetSiteProfile(ctx context.Context) (*model.SiteProfile, error) 
 		Tagline:     "写点东西",
 		Description: "一个人的写作空间。",
 		Author:      "bs",
+		Wallpapers:  DefaultWallpapers,
 		Socials:     DefaultSocials,
 	}
 	if err := s.db.WithContext(ctx).Create(&profile).Error; err != nil {
@@ -56,10 +60,16 @@ func (s *Store) SaveSiteProfile(ctx context.Context, profile *model.SiteProfile)
 	if profile.Socials == "" {
 		profile.Socials = DefaultSocials
 	}
+	if profile.Wallpapers == "" {
+		profile.Wallpapers = DefaultWallpapers
+	}
 	// Validate here so a malformed payload cannot poison every later read that
 	// tries to unmarshal it.
 	if !json.Valid([]byte(profile.Socials)) {
 		return fmt.Errorf("data: socials is not valid JSON")
+	}
+	if !json.Valid([]byte(profile.Wallpapers)) {
+		return fmt.Errorf("data: wallpapers is not valid JSON")
 	}
 
 	err := s.db.WithContext(ctx).Model(&model.SiteProfile{ID: profile.ID}).Updates(map[string]any{
@@ -68,6 +78,7 @@ func (s *Store) SaveSiteProfile(ctx context.Context, profile *model.SiteProfile)
 		"description": profile.Description,
 		"author":      profile.Author,
 		"avatar_url":  profile.AvatarURL,
+		"wallpapers":  profile.Wallpapers,
 		"socials":     profile.Socials,
 		"footer_note": profile.FooterNote,
 	}).Error

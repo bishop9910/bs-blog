@@ -1,0 +1,248 @@
+<path>C:\Users\bisho\Desktop\bs-blog\src\styles\tokens.css</path>
+<type>file</type>
+<content>
+1: /* ==========================================================================
+2:    bs-blog — Design Tokens
+3:    Layered: palette -> semantic -> component-scoped aliases.
+4:    Never hardcode a hex outside the palette layer.
+5:    ========================================================================== */
+6: 
+7: /* --------------------------------------------------------------------------
+8:    1. Palette (raw values, no meaning attached)
+9:    -------------------------------------------------------------------------- */
+10: :root {
+11:   /* Neutral ramp — zinc-flavoured, tuned to the #18181B anchor */
+12:   --p-zinc-950: #09090b;
+13:   --p-zinc-925: #111113;
+14:   --p-zinc-900: #18181b;
+15:   --p-zinc-850: #1f1f23;
+16:   --p-zinc-800: #27272a;
+17:   --p-zinc-700: #3f3f46;
+18:   --p-zinc-600: #52525b;
+19:   --p-zinc-500: #71717a;
+20:   --p-zinc-400: #a1a1aa;
+21:   --p-zinc-300: #d4d4d8;
+22:   --p-zinc-200: #e4e4e7;
+23:   --p-zinc-100: #f4f4f5;
+24:   --p-zinc-50: #fafafa;
+25:   --p-white: #ffffff;
+26: 
+27:   /* Accent — the single loud colour. Pink is the brand. */
+28:   --p-pink-300: #f9a8d4;
+29:   --p-pink-400: #f472b6;
+30:   --p-pink-500: #ec4899;
+31:   --p-pink-600: #db2777;
+32:   --p-pink-700: #be185d;
+33: 
+34:   /* Status */
+35:   --p-green-500: #22c55e;
+36:   --p-green-600: #16a34a;
+37:   --p-amber-500: #f59e0b;
+38:   --p-amber-600: #d97706;
+39:   --p-red-500: #ef4444;
+40:   --p-red-600: #dc2626;
+41:   --p-blue-400: #60a5fa;
+42:   --p-blue-500: #3b82f6;
+43: 
+44:   /* Highlight wash for editor selections */
+45:   --p-lime-200: #d9f99d;
+46:   --p-lime-300: #bef264;
+47: }
+48: 
+49: /* --------------------------------------------------------------------------
+50:    2. Semantic tokens — the only names components may reference
+51:    -------------------------------------------------------------------------- */
+52: :root,
+53: :root[data-theme='dark'] {
+54:   color-scheme: dark;
+55: 
+56:   --bg-base: var(--p-zinc-950);
+57:   --bg-subtle: var(--p-zinc-925);
+58:   --bg-elevated: var(--p-zinc-900);
+59:   --bg-inset: #0c0c0e;
+60:   --bg-card: var(--p-zinc-900);
+61:   --bg-hover: var(--p-zinc-850);
+62:   --bg-active: var(--p-zinc-800);
+63: 
+64:   --border-subtle: var(--p-zinc-800);
+65:   --border-strong: var(--p-zinc-700);
+66:   --border-accent: var(--p-pink-500);
+67: 
+68:   --text-primary: var(--p-zinc-50);
+69:   --text-secondary: var(--p-zinc-400);
+70:   --text-muted: var(--p-zinc-500);
+71:   --text-inverse: var(--p-zinc-950);
+72:   --text-on-accent: var(--p-white);
+73: 
+74:   /* Overlays that sit on top of a photo (wallpaper preview). Deliberately not
+75:      redefined per theme: an image can be bright in either one, so the scrim
+76:      stays dark and the label stays light. */
+77:   --scrim: color-mix(in srgb, var(--p-zinc-950) 58%, transparent);
+78:   --text-on-scrim: var(--p-zinc-50);
+79: 
+80:   --accent: var(--p-pink-500);
+81:   --accent-hover: var(--p-pink-400);
+82:   --accent-pressed: var(--p-pink-600);
+83:   --accent-subtle: rgb(236 72 153 / 14%);
+84:   --accent-border: rgb(236 72 153 / 35%);
+85: 
+86:   --success: var(--p-green-500);
+87:   --warning: var(--p-amber-500);
+88:   --danger: var(--p-red-500);
+89:   --info: var(--p-blue-400);
+90: 
+91:   --focus-ring: var(--p-pink-400);
+92: 
+93:   /* Ambient / decorative */
+94:   --glow-accent: 0 0 0 1px rgb(236 72 153 / 20%), 0 8px 40px -12px rgb(236 72 153 / 45%);
+95:   --shadow-sm: 0 1px 2px rgb(0 0 0 / 40%);
+96:   --shadow-md: 0 4px 16px -4px rgb(0 0 0 / 55%);
+97:   --shadow-lg: 0 16px 48px -12px rgb(0 0 0 / 65%);
+98:   --grain-opacity: 0.04;
+99:   --grid-line: rgb(255 255 255 / 4%);
+100: }
+101: 
+102: :root[data-theme='light'] {
+103:   color-scheme: light;
+104: 
+105:   --bg-base: var(--p-zinc-50);
+106:   --bg-subtle: var(--p-zinc-100);
+107:   --bg-elevated: var(--p-white);
+108:   --bg-inset: var(--p-zinc-100);
+109:   --bg-card: var(--p-white);
+110:   --bg-hover: var(--p-zinc-100);
+111:   --bg-active: var(--p-zinc-200);
+112: 
+113:   --border-subtle: var(--p-zinc-200);
+114:   --border-strong: var(--p-zinc-300);
+115:   --border-accent: var(--p-pink-600);
+116: 
+117:   --text-primary: var(--p-zinc-950);
+118:   --text-secondary: var(--p-zinc-600);
+119:   --text-muted: var(--p-zinc-500);
+120:   --text-inverse: var(--p-zinc-50);
+121:   --text-on-accent: var(--p-white);
+122: 
+123:   --accent: var(--p-pink-600);
+124:   --accent-hover: var(--p-pink-700);
+125:   --accent-pressed: var(--p-pink-700);
+126:   --accent-subtle: rgb(219 39 119 / 10%);
+127:   --accent-border: rgb(219 39 119 / 28%);
+128: 
+129:   --success: var(--p-green-600);
+130:   --warning: var(--p-amber-600);
+131:   --danger: var(--p-red-600);
+132:   --info: var(--p-blue-500);
+133: 
+134:   --focus-ring: var(--p-pink-600);
+135: 
+136:   --glow-accent: 0 0 0 1px rgb(219 39 119 / 18%), 0 8px 40px -14px rgb(219 39 119 / 35%);
+137:   --shadow-sm: 0 1px 2px rgb(0 0 0 / 6%);
+138:   --shadow-md: 0 4px 16px -4px rgb(0 0 0 / 10%);
+139:   --shadow-lg: 0 16px 48px -12px rgb(0 0 0 / 16%);
+140:   --grain-opacity: 0.025;
+141:   --grid-line: rgb(0 0 0 / 4%);
+142: }
+143: 
+144: /* --------------------------------------------------------------------------
+145:    3. Typography
+146:    -------------------------------------------------------------------------- */
+147: :root {
+148:   --font-display: 'Libre Bodoni', 'Noto Serif SC', georgia, 'Times New Roman', serif;
+149:   --font-body: 'Public Sans', 'Noto Sans SC', -apple-system, blinkmacsystemfont,
+150:     'Segoe UI', roboto, sans-serif;
+151:   --font-mono: 'JetBrains Mono', 'SFMono-Regular', consolas, 'Liberation Mono', monospace;
+152: 
+153:   /* Fluid type scale */
+154:   --text-2xs: 0.6875rem; /* 11px */
+155:   --text-xs: 0.75rem; /* 12px */
+156:   --text-sm: 0.875rem; /* 14px */
+157:   --text-base: 1rem; /* 16px */
+158:   --text-lg: 1.125rem; /* 18px */
+159:   --text-xl: 1.375rem; /* 22px */
+160:   --text-2xl: clamp(1.5rem, 1.2rem + 1.5vw, 2rem);
+161:   --text-3xl: clamp(1.875rem, 1.4rem + 2.4vw, 2.75rem);
+162:   --text-4xl: clamp(2.25rem, 1.5rem + 3.8vw, 3.75rem);
+163:   --text-5xl: clamp(2.75rem, 1.6rem + 5.8vw, 5.25rem);
+164: 
+165:   --leading-tight: 1.15;
+166:   --leading-snug: 1.35;
+167:   --leading-normal: 1.6;
+168:   --leading-relaxed: 1.8;
+169: 
+170:   --tracking-tight: -0.02em;
+171:   --tracking-normal: 0;
+172:   --tracking-wide: 0.02em;
+173:   --tracking-caps: 0.12em;
+174: 
+175:   /* Measure — long-form stays inside the 45–75ch band */
+176:   --measure: 68ch;
+177:   --measure-narrow: 54ch;
+178: }
+179: 
+180: /* --------------------------------------------------------------------------
+181:    4. Space, radius, layout, motion
+182:    -------------------------------------------------------------------------- */
+183: :root {
+184:   --space-2xs: 2px;
+185:   --space-xs: 4px;
+186:   --space-sm: 8px;
+187:   --space-md: 16px;
+188:   --space-lg: 24px;
+189:   --space-xl: 32px;
+190:   --space-2xl: 48px;
+191:   --space-3xl: 64px;
+192:   --space-4xl: 96px;
+193: 
+194:   --radius-xs: 4px;
+195:   --radius-sm: 8px;
+196:   --radius-md: 12px;
+197:   --radius-lg: 16px;
+198:   --radius-xl: 24px;
+199:   --radius-full: 9999px;
+200: 
+201:   --container-sm: 640px;
+202:   --container-md: 900px;
+203:   --container-lg: 1200px;
+204:   --container-xl: 1440px;
+205: 
+206:   --header-h: 64px;
+207:   --z-base: 1;
+208:   --z-sticky: 100;
+209:   --z-overlay: 300;
+210:   --z-modal: 400;
+211:   --z-toast: 500;
+212:   --z-max: 9999;
+213: 
+214:   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+215:   --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+216:   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+217:   --dur-instant: 80ms;
+218:   --dur-fast: 150ms;
+219:   --dur-normal: 250ms;
+220:   --dur-slow: 400ms;
+221:   --dur-slower: 700ms;
+222: 
+223:   --icon-sm: 16px;
+224:   --icon-md: 20px;
+225:   --icon-lg: 24px;
+226: 
+227:   /* Minimum interactive hit area (WCAG 2.5.8 target size) */
+228:   --hit-min: 44px;
+229: }
+230: 
+231: /* --------------------------------------------------------------------------
+232:    5. Reduced motion — kill decoration, keep feedback
+233:    -------------------------------------------------------------------------- */
+234: @media (prefers-reduced-motion: reduce) {
+235:   :root {
+236:     --dur-instant: 0ms;
+237:     --dur-fast: 0ms;
+238:     --dur-normal: 0ms;
+239:     --dur-slow: 0ms;
+240:     --dur-slower: 0ms;
+241:   }
+242: }
+
+(End of file - total 242 lines)
+</content>

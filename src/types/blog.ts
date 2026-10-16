@@ -91,6 +91,9 @@ export interface SiteMeta {
   description: string
   author: string
   avatarUrl: string
+  /** Wallpaper pool. A visit paints one of these at random, so order is a hint
+   * about preference, not a sequence. */
+  wallpapers: string[]
   socials: SocialLink[]
   footerNote: string
   stats: SiteStats

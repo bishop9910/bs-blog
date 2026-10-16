@@ -1,0 +1,350 @@
+<path>C:\Users\bisho\Desktop\bs-blog\src\views\admin\SettingsView.vue</path>
+<type>file</type>
+<content>
+1: <script setup lang="ts">
+2: import { onMounted, reactive, ref } from 'vue'
+3: import { NButton, NInput, NSelect, useMessage } from 'naive-ui'
+4: import { PhFloppyDisk, PhPlus, PhTrash } from '@phosphor-icons/vue'
+5: import { updateSite } from '@/api/site'
+6: import { changePassword } from '@/api/auth'
+7: import { useSite } from '@/composables/useSite'
+8: import type { SocialLink } from '@/types/blog'
+9: 
+10: const message = useMessage()
+11: const { site, setSite } = useSite()
+12: 
+13: const ICON_OPTIONS = [
+14:   { label: 'GitHub', value: 'github' },
+15:   { label: 'X', value: 'x' },
+16:   { label: '邮箱', value: 'email' },
+17:   { label: 'RSS', value: 'rss' },
+18:   { label: '其他链接', value: 'link' },
+19: ]
+20: 
+21: const loading = ref(true)
+22: const saving = ref(false)
+23: const changing = ref(false)
+24: 
+25: const form = reactive({
+26:   title: '',
+27:   tagline: '',
+28:   description: '',
+29:   author: '',
+30:   avatarUrl: '',
+31:   footerNote: '',
+32: })
+33: 
+34: const socials = ref<SocialLink[]>([])
+35: 
+36: const password = [REDACTED:credential]({
+37:   oldPassword: '',
+38:   newPassword: '',
+39:   confirm: '',
+40: })
+41: 
+42: async function save() {
+43:   saving.value = true
+44:   try {
+45:     const updated = await updateSite({
+46:       title: form.title.trim(),
+47:       tagline: form.tagline.trim(),
+48:       description: form.description.trim(),
+49:       author: form.author.trim(),
+50:       avatarUrl: form.avatarUrl.trim(),
+51:       footerNote: form.footerNote.trim(),
+52:       socials: socials.value
+53:         .map((link) => ({
+54:           icon: link.icon,
+55:           label: link.label.trim(),
+56:           url: link.url.trim(),
+57:         }))
+58:         .filter((link) => link.url.length > 0),
+59:     })
+60:     setSite(updated)
+61:     applySite(updated)
+62:     message.success('已保存')
+63:   } catch (caught) {
+64:     message.error(caught instanceof Error ? caught.message : '保存失败')
+65:   } finally {
+66:     saving.value = false
+67:   }
+68: }
+69: 
+70: function applySite(meta: typeof site.value) {
+71:   if (!meta) return
+72:   form.title = meta.title
+73:   form.tagline = meta.tagline
+74:   form.description = meta.description
+75:   form.author = meta.author
+76:   form.avatarUrl = meta.avatarUrl
+77:   form.footerNote = meta.footerNote
+78:   socials.value = meta.socials.map((link) => ({ ...link }))
+79: }
+80: 
+81: function addSocial() {
+82:   socials.value.push({ icon: 'link', label: '', url: '' })
+83: }
+84: 
+85: function removeSocial(index: number) {
+86:   socials.value.splice(index, 1)
+87: }
+88: 
+89: async function submitPassword() {
+90:   if (!password.oldPassword || !password.newPassword) {
+91:     message.warning('请填写当前密码和新密码')
+92:     return
+93:   }
+94:   if (password.newPassword !== password.confirm) {
+95:     message.warning('两次输入的新密码不一致')
+96:     return
+97:   }
+98:   changing.value = true
+99:   try {
+100:     await changePassword(password.oldPassword, password.newPassword)
+101:     password.oldPassword = ''
+102:     password.newPassword = ''
+103:     password.confirm = ''
+104:     message.success('密码已更新')
+105:   } catch (caught) {
+106:     message.error(caught instanceof Error ? caught.message : '修改失败')
+107:   } finally {
+108:     changing.value = false
+109:   }
+110: }
+111: 
+112: onMounted(async () => {
+113:   try {
+114:     const { load } = useSite()
+115:     await load()
+116:   } finally {
+117:     applySite(site.value)
+118:     loading.value = false
+119:   }
+120: })
+121: </script>
+122: 
+123: <template>
+124:   <div class="settings">
+125:     <p v-if="loading" class="state">正在加载…</p>
+126: 
+127:     <template v-else>
+128:       <section class="card">
+129:         <header class="card__head">
+130:           <h2 class="card__title">站点信息</h2>
+131:           <p class="card__hint">这些内容会出现在首页、页脚和浏览器标题里。</p>
+132:         </header>
+133: 
+134:         <div class="form">
+135:           <label class="field">
+136:             <span class="field__label">站点名称</span>
+137:             <NInput v-model:value="form.title" placeholder="bs-blog" />
+138:           </label>
+139: 
+140:           <label class="field">
+141:             <span class="field__label">一句话介绍</span>
+142:             <NInput v-model:value="form.tagline" placeholder="写点东西" />
+143:           </label>
+144: 
+145:           <label class="field">
+146:             <span class="field__label">站点描述</span>
+147:             <NInput
+148:               v-model:value="form.description"
+149:               type="textarea"
+150:               :autosize="{ minRows: 2, maxRows: 4 }"
+151:               placeholder="出现在关于页和搜索结果里"
+152:             />
+153:           </label>
+154: 
+155:           <div class="form__row">
+156:             <label class="field">
+157:               <span class="field__label">作者</span>
+158:               <NInput v-model:value="form.author" placeholder="怎么称呼你" />
+159:             </label>
+160: 
+161:             <label class="field">
+162:               <span class="field__label">头像地址</span>
+163:               <NInput v-model:value="form.avatarUrl" placeholder="/uploads/… 或外部链接" />
+164:             </label>
+165:           </div>
+166: 
+167:           <label class="field">
+168:             <span class="field__label">页脚说明</span>
+169:             <NInput v-model:value="form.footerNote" placeholder="留空则用站点描述" />
+170:           </label>
+171:         </div>
+172:       </section>
+173: 
+174:       <section class="card">
+175:         <header class="card__head">
+176:           <h2 class="card__title">社交链接</h2>
+177:           <p class="card__hint">
+178:             只支持 http/https 链接，其他协议会被服务端丢弃。
+179:           </p>
+180:         </header>
+181: 
+182:         <div v-if="socials.length > 0" class="socials">
+183:           <div v-for="(link, index) in socials" :key="index" class="socials__row">
+184:             <NSelect v-model:value="link.icon" class="socials__icon" :options="ICON_OPTIONS" />
+185:             <NInput v-model:value="link.label" placeholder="显示名称" />
+186:             <NInput v-model:value="link.url" placeholder="https://…" />
+187:             <NButton quaternary type="error" title="删除" @click="removeSocial(index)">
+188:               <template #icon><PhTrash :size="16" /></template>
+189:             </NButton>
+190:           </div>
+191:         </div>
+192:         <p v-else class="card__hint">还没有添加任何链接。</p>
+193: 
+194:         <NButton secondary size="small" @click="addSocial">
+195:           <template #icon><PhPlus :size="16" /></template>
+196:           添加链接
+197:         </NButton>
+198:       </section>
+199: 
+200:       <div class="save-bar">
+201:         <NButton type="primary" :loading="saving" @click="save">
+202:           <template #icon><PhFloppyDisk :size="16" /></template>
+203:           保存站点信息
+204:         </NButton>
+205:       </div>
+206: 
+207:       <section class="card">
+208:         <header class="card__head">
+209:           <h2 class="card__title">修改密码</h2>
+210:           <p class="card__hint">改完之后其他设备上的登录会立即失效。</p>
+211:         </header>
+212: 
+213:         <div class="form">
+214:           <label class="field">
+215:             <span class="field__label">当前密码</span>
+216:             <NInput
+217:               v-model:value="password.oldPassword"
+218:               type="password"
+219:               show-password-on="[REDACTED:credential]"
+220:               placeholder="当前使用的密码"
+221:             />
+222:           </label>
+223: 
+224:           <div class="form__row">
+225:             <label class="field">
+226:               <span class="field__label">新密码</span>
+227:               <NInput
+228:                 v-model:value="password.newPassword"
+229:                 type="password"
+230:                 show-password-on="[REDACTED:credential]"
+231:                 placeholder="至少 8 位"
+232:               />
+233:             </label>
+234: 
+235:             <label class="field">
+236:               <span class="field__label">再输一次</span>
+237:               <NInput
+238:                 v-model:value="password.confirm"
+239:                 type="password"
+240:                 show-password-on="[REDACTED:credential]"
+241:                 placeholder="确认新密码"
+242:               />
+243:             </label>
+244:           </div>
+245: 
+246:           <NButton secondary :loading="changing" @click="submitPassword">更新密码</NButton>
+247:         </div>
+248:       </section>
+249:     </template>
+250:   </div>
+251: </template>
+252: 
+253: <style scoped>
+254: .settings {
+255:   display: flex;
+256:   flex-direction: column;
+257:   gap: var(--space-md);
+258:   max-width: 860px;
+259: }
+260: 
+261: .card {
+262:   display: flex;
+263:   flex-direction: column;
+264:   gap: var(--space-md);
+265:   padding: var(--space-lg);
+266:   border: 1px solid var(--border-subtle);
+267:   border-radius: var(--radius-lg);
+268:   background: var(--bg-card);
+269: }
+270: 
+271: .card__head {
+272:   display: flex;
+273:   flex-direction: column;
+274:   gap: var(--space-2xs);
+275: }
+276: 
+277: .card__title {
+278:   margin: 0;
+279:   color: var(--text-primary);
+280:   font-family: var(--font-display);
+281:   font-size: var(--text-lg);
+282: }
+283: 
+284: .card__hint {
+285:   margin: 0;
+286:   color: var(--text-muted);
+287:   font-size: var(--text-xs);
+288: }
+289: 
+290: .form {
+291:   display: flex;
+292:   flex-direction: column;
+293:   gap: var(--space-md);
+294: }
+295: 
+296: .form__row {
+297:   display: grid;
+298:   grid-template-columns: repeat(2, minmax(0, 1fr));
+299:   gap: var(--space-md);
+300: }
+301: 
+302: .socials {
+303:   display: flex;
+304:   flex-direction: column;
+305:   gap: var(--space-sm);
+306: }
+307: 
+308: .socials__row {
+309:   display: grid;
+310:   grid-template-columns: 120px minmax(0, 1fr) minmax(0, 1.4fr) 40px;
+311:   gap: var(--space-sm);
+312:   align-items: center;
+313: }
+314: 
+315: .socials__icon {
+316:   width: 120px;
+317: }
+318: 
+319: .save-bar {
+320:   display: flex;
+321:   justify-content: flex-end;
+322: }
+323: 
+324: .state {
+325:   padding: var(--space-3xl);
+326:   color: var(--text-muted);
+327:   font-size: var(--text-sm);
+328:   text-align: center;
+329: }
+330: 
+331: @media (max-width: 720px) {
+332:   .form__row {
+333:     grid-template-columns: minmax(0, 1fr);
+334:   }
+335: 
+336:   .socials__row {
+337:     grid-template-columns: minmax(0, 1fr);
+338:   }
+339: 
+340:   .socials__icon {
+341:     width: 100%;
+342:   }
+343: }
+344: </style>
+
+(End of file - total 344 lines)
+</content>

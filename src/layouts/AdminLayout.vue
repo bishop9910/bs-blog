@@ -5,6 +5,7 @@ import {
   PhArticle,
   PhGear,
   PhImages,
+  PhMusicNotes,
   PhPlus,
   PhSignOut,
 } from '@phosphor-icons/vue'
@@ -30,6 +31,11 @@ const menuOptions = computed<MenuOption[]>(() => [
     label: '媒体',
     key: 'admin-media',
     icon: () => h(PhImages, { size: 18 }),
+  },
+  {
+    label: '音乐',
+    key: 'admin-music',
+    icon: () => h(PhMusicNotes, { size: 18 }),
   },
   {
     label: '站点设置',

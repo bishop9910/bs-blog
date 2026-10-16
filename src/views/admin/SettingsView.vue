@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { NButton, NInput, NSelect, useMessage } from 'naive-ui'
-import { PhFloppyDisk, PhPlus, PhTrash } from '@phosphor-icons/vue'
+import { PhFloppyDisk, PhImage, PhPlus, PhTrash } from '@phosphor-icons/vue'
 import { updateSite } from '@/api/site'
 import { changePassword } from '@/api/auth'
 import { useSite } from '@/composables/useSite'
+import MediaPicker from '@/components/admin/MediaPicker.vue'
+import WallpaperManager from '@/components/admin/WallpaperManager.vue'
 import type { SocialLink } from '@/types/blog'
 
 const message = useMessage()
@@ -32,6 +34,8 @@ const form = reactive({
 })
 
 const socials = ref<SocialLink[]>([])
+const wallpapers = ref<string[]>([])
+const avatarPickerOpen = ref(false)
 
 const password = reactive({
   oldPassword: '',
@@ -49,6 +53,7 @@ async function save() {
       author: form.author.trim(),
       avatarUrl: form.avatarUrl.trim(),
       footerNote: form.footerNote.trim(),
+      wallpapers: wallpapers.value,
       socials: socials.value
         .map((link) => ({
           icon: link.icon,
@@ -75,6 +80,7 @@ function applySite(meta: typeof site.value) {
   form.author = meta.author
   form.avatarUrl = meta.avatarUrl
   form.footerNote = meta.footerNote
+  wallpapers.value = [...(meta.wallpapers ?? [])]
   socials.value = meta.socials.map((link) => ({ ...link }))
 }
 
@@ -161,6 +167,10 @@ onMounted(async () => {
             <label class="field">
               <span class="field__label">头像地址</span>
               <NInput v-model:value="form.avatarUrl" placeholder="/uploads/… 或外部链接" />
+              <NButton size="tiny" secondary class="field__action" @click="avatarPickerOpen = true">
+                <template #icon><PhImage :size="14" /></template>
+                从媒体库选择
+              </NButton>
             </label>
           </div>
 
@@ -195,6 +205,17 @@ onMounted(async () => {
           <template #icon><PhPlus :size="16" /></template>
           添加链接
         </NButton>
+      </section>
+
+      <section class="card">
+        <header class="card__head">
+          <h2 class="card__title">壁纸</h2>
+          <p class="card__hint">
+            加到这里的图片会变成整站背景，每次打开或刷新随机显示其中一张。留空则使用默认的极光背景。
+          </p>
+        </header>
+
+        <WallpaperManager v-model="wallpapers" />
       </section>
 
       <div class="save-bar">
@@ -246,6 +267,13 @@ onMounted(async () => {
           <NButton secondary :loading="changing" @click="submitPassword">更新密码</NButton>
         </div>
       </section>
+
+      <MediaPicker
+        v-model:show="avatarPickerOpen"
+        title="选择头像"
+        hint="头像会显示在页头和关于页。"
+        @select="form.avatarUrl = $event[0] ?? ''"
+      />
     </template>
   </div>
 </template>
@@ -297,6 +325,11 @@ onMounted(async () => {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-md);
+}
+
+.field__action {
+  align-self: flex-start;
+  margin-top: var(--space-2xs);
 }
 
 .socials {

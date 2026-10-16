@@ -15,6 +15,46 @@
       "observations": 521,
       "usedTokensEstimate": 241946,
       "updatedAt": "2026-10-14T15:08:52.771Z"
+    },
+    "session-0d6cb27b-b857-45f3-9390-7d1e8086f85f": {
+      "sessionId": "session-0d6cb27b-b857-45f3-9390-7d1e8086f85f",
+      "rawBytes": 38759,
+      "visibleBytes": 38759,
+      "observations": 46,
+      "usedTokensEstimate": 9690,
+      "updatedAt": "2026-10-16T04:09:15.944Z"
+    },
+    "0e6a1867-3bbd-4066-b535-d8448407e2bb": {
+      "sessionId": "0e6a1867-3bbd-4066-b535-d8448407e2bb",
+      "rawBytes": 368161,
+      "visibleBytes": 299006,
+      "observations": 183,
+      "usedTokensEstimate": 74752,
+      "updatedAt": "2026-10-15T15:27:17.129Z"
+    },
+    "ad4e99f1-f661-4633-88b0-15720f47dc28": {
+      "sessionId": "ad4e99f1-f661-4633-88b0-15720f47dc28",
+      "rawBytes": 385316,
+      "visibleBytes": 266791,
+      "observations": 140,
+      "usedTokensEstimate": 66698,
+      "updatedAt": "2026-10-15T16:00:59.409Z"
+    },
+    "9212160f-03e5-490c-8271-e23456adbd15": {
+      "sessionId": "9212160f-03e5-490c-8271-e23456adbd15",
+      "rawBytes": 307103,
+      "visibleBytes": 221973,
+      "observations": 131,
+      "usedTokensEstimate": 55493,
+      "updatedAt": "2026-10-15T16:00:13.287Z"
+    },
+    "cfdf215b-2321-49eb-9b08-b291cf033d87": {
+      "sessionId": "cfdf215b-2321-49eb-9b08-b291cf033d87",
+      "rawBytes": 245457,
+      "visibleBytes": 221353,
+      "observations": 112,
+      "usedTokensEstimate": 55338,
+      "updatedAt": "2026-10-15T15:59:43.511Z"
     }
   }
 }

@@ -12,13 +12,15 @@ import (
 
 // Field limits, chosen to fit the columns declared in internal/model.
 const (
-	maxSocials      = 12
-	maxTitleRunes   = 60
-	maxTaglineRunes = 100
-	maxDescRunes    = 300
-	maxAuthorRunes  = 40
-	maxFooterRunes  = 120
-	maxLabelRunes   = 40
+	maxSocials        = 12
+	maxWallpapers     = 24
+	maxWallpaperRunes = 512
+	maxTitleRunes     = 60
+	maxTaglineRunes   = 100
+	maxDescRunes      = 300
+	maxAuthorRunes    = 40
+	maxFooterRunes    = 120
+	maxLabelRunes     = 40
 )
 
 // knownSocialIcons keeps the frontend's icon lookup total. An unrecognised key
@@ -80,12 +82,18 @@ func (uc *SiteUsecase) Update(ctx context.Context, in SiteInput) (*SiteMetaDTO, 
 		return nil, internal("无法保存社交链接", err)
 	}
 
+	wallpapers, err := json.Marshal(normaliseWallpapers(in.Wallpapers))
+	if err != nil {
+		return nil, internal("无法保存壁纸列表", err)
+	}
+
 	profile.Title = title
 	profile.Tagline = truncateRunes(strings.TrimSpace(in.Tagline), maxTaglineRunes)
 	profile.Description = truncateRunes(strings.TrimSpace(in.Description), maxDescRunes)
 	profile.Author = truncateRunes(strings.TrimSpace(in.Author), maxAuthorRunes)
 	profile.AvatarURL = strings.TrimSpace(in.AvatarURL)
 	profile.FooterNote = truncateRunes(strings.TrimSpace(in.FooterNote), maxFooterRunes)
+	profile.Wallpapers = string(wallpapers)
 	profile.Socials = string(socials)
 
 	if err := uc.store.SaveSiteProfile(ctx, profile); err != nil {
@@ -116,6 +124,7 @@ func toSiteMetaDTO(profile model.SiteProfile, stats data.Stats) *SiteMetaDTO {
 		Description: profile.Description,
 		Author:      profile.Author,
 		AvatarURL:   profile.AvatarURL,
+		Wallpapers:  parseWallpapers(profile.Wallpapers),
 		Socials:     socials,
 		FooterNote:  profile.FooterNote,
 		Stats: SiteStatsDTO{
@@ -160,6 +169,85 @@ func normaliseSocials(in []SocialLinkDTO) []SocialLinkDTO {
 	}
 
 	return out
+}
+
+// normaliseWallpapers trims, bounds, dedupes and validates the wallpaper pool.
+//
+// Order is preserved: the owner may deliberately put a favourite first, and the
+// admin list is the only place that order is visible. Duplicates are dropped
+// because a repeated URL would silently skew the random pick.
+func normaliseWallpapers(in []string) []string {
+	out := make([]string, 0, len(in))
+	seen := make(map[string]struct{}, len(in))
+
+	for _, raw := range in {
+		if len(out) >= maxWallpapers {
+			break
+		}
+
+		target := truncateRunes(strings.TrimSpace(raw), maxWallpaperRunes)
+		if target == "" || !isSafeImageTarget(target) {
+			continue
+		}
+		if _, dup := seen[target]; dup {
+			continue
+		}
+
+		seen[target] = struct{}{}
+		out = append(out, target)
+	}
+
+	return out
+}
+
+// parseWallpapers reads the stored JSON array back.
+//
+// A malformed blob yields an empty pool rather than an error: a site with no
+// wallpaper is a far better failure than a 500 on every page load.
+func parseWallpapers(raw string) []string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" || raw == "[]" {
+		return []string{}
+	}
+
+	var parsed []string
+	if err := json.Unmarshal([]byte(raw), &parsed); err != nil {
+		return []string{}
+	}
+
+	out := make([]string, 0, len(parsed))
+	for _, item := range parsed {
+		if target := strings.TrimSpace(item); target != "" {
+			out = append(out, target)
+		}
+	}
+	return out
+}
+
+// isSafeImageTarget allows site-relative paths and absolute http(s) URLs, and
+// nothing else. It is deliberately narrower than isSafeLinkTarget: a wallpaper
+// is painted by the browser as an image, so mailto: and javascript: can never be
+// meaningful here.
+func isSafeImageTarget(target string) bool {
+	if strings.HasPrefix(target, "//") {
+		return false
+	}
+
+	parsed, err := url.Parse(target)
+	if err != nil {
+		return false
+	}
+
+	if parsed.Scheme == "" {
+		return strings.HasPrefix(target, "/")
+	}
+
+	switch strings.ToLower(parsed.Scheme) {
+	case "http", "https":
+		return parsed.Host != ""
+	default:
+		return false
+	}
 }
 
 // isSafeLinkTarget allows absolute http(s) and mailto links plus site-relative

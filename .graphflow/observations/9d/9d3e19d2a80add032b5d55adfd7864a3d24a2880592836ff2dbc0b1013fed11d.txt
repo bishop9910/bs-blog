@@ -1,0 +1,371 @@
+<path>C:\Users\bisho\Desktop\bs-blog\src\components\music\MusicPlaylist.vue</path>
+<type>file</type>
+<content>
+1: <script setup lang="ts">
+2: /**
+3:  * Playlist drawer for the music player.
+4:  *
+5:  * The full library is the queue by default; picking a row plays that track
+6:  * against the currently visible order so "next" follows what the reader sees.
+7:  * Rows stay cheap (no covers, no per-row observers) because a personal library
+8:  * can easily run into the thousands of files.
+9:  */
+10: import { computed, ref } from 'vue'
+11: import { PhArrowClockwise, PhMagnifyingGlass, PhShuffle, PhVinylRecord } from '@phosphor-icons/vue'
+12: import { useMusic } from '@/composables/useMusic'
+13: import { formatDurationMs } from '@/utils/time'
+14: import type { MusicTrack } from '@/types/music'
+15: 
+16: const music = useMusic()
+17: 
+18: const keyword = ref('')
+19: 
+20: const visible = computed<MusicTrack[]>(() => {
+21:   const needle = keyword.value.trim().toLowerCase()
+22:   const all = music.tracks.value
+23:   if (!needle) return all
+24: 
+25:   return all.filter((track) =>
+26:     `${track.title} ${track.artist} ${track.album}`.toLowerCase().includes(needle),
+27:   )
+28: })
+29: 
+30: function onSelect(track: MusicTrack): void {
+31:   // Play within the filtered order so "next" matches the list on screen.
+32:   music.playTrack(track, visible.value.map((item) => item.id))
+33: }
+34: 
+35: function retry(): void {
+36:   void music.load(true)
+37: }
+38: </script>
+39: 
+40: <template>
+41:   <div class="playlist">
+42:     <div class="playlist__tools">
+43:       <label class="playlist__search">
+44:         <PhMagnifyingGlass :size="14" weight="bold" aria-hidden="true" />
+45:         <span class="sr-only">搜索曲目</span>
+46:         <input v-model="keyword" type="search" placeholder="搜索标题、歌手或专辑" spellcheck="false" />
+47:       </label>
+48: 
+49:       <button
+50:         type="button"
+51:         class="playlist__shuffle"
+52:         title="随机播放全部"
+53:         aria-label="随机播放全部"
+54:         :disabled="music.tracks.value.length === 0"
+55:         @click="music.shuffleAll()"
+56:       >
+57:         <PhShuffle :size="16" weight="bold" aria-hidden="true" />
+58:       </button>
+59:     </div>
+60: 
+61:     <p class="playlist__meta">
+62:       <span>{{ visible.length }} / {{ music.tracks.value.length }} 首</span>
+63:       <span v-if="keyword.trim()" class="playlist__meta-hint">已筛选</span>
+64:     </p>
+65: 
+66:     <div v-if="music.loading.value && !music.loaded.value" class="playlist__state">正在读取曲库…</div>
+67: 
+68:     <div v-else-if="music.loadError.value" class="playlist__state playlist__state--error">
+69:       <p>{{ music.loadError.value }}</p>
+70:       <button type="button" class="playlist__retry" @click="retry">
+71:         <PhArrowClockwise :size="14" weight="bold" aria-hidden="true" />
+72:         重试
+73:       </button>
+74:     </div>
+75: 
+76:     <div v-else-if="music.tracks.value.length === 0" class="playlist__state">
+77:       <PhVinylRecord :size="22" weight="duotone" aria-hidden="true" />
+78:       <p>曲库是空的</p>
+79:       <small>把音频放进音乐目录，或在后台的音乐页面上传</small>
+80:     </div>
+81: 
+82:     <div v-else-if="visible.length === 0" class="playlist__state">没有匹配的曲目</div>
+83: 
+84:     <ul v-else class="playlist__list">
+85:       <li v-for="(track, index) in visible" :key="track.id">
+86:         <button
+87:           type="button"
+88:           class="playlist__row"
+89:           :class="{ 'is-current': track.id === music.currentId.value }"
+90:           :aria-current="track.id === music.currentId.value ? 'true' : undefined"
+91:           @click="onSelect(track)"
+92:         >
+93:           <span class="playlist__marker" aria-hidden="true">
+94:             <span v-if="track.id === music.currentId.value && music.playing.value" class="playlist__eq">
+95:               <i /><i /><i />
+96:             </span>
+97:             <span v-else>{{ index + 1 }}</span>
+98:           </span>
+99: 
+100:           <span class="playlist__text">
+101:             <span class="playlist__title">{{ track.title }}</span>
+102:             <span class="playlist__sub">{{ track.artist || '未知歌手' }}<template v-if="track.album"> · {{ track.album }}</template></span>
+103:           </span>
+104: 
+105:           <span class="playlist__time">{{ formatDurationMs(track.durationMs, '--:--') }}</span>
+106:         </button>
+107:       </li>
+108:     </ul>
+109:   </div>
+110: </template>
+111: 
+112: <style scoped>
+113: .playlist {
+114:   display: flex;
+115:   flex-direction: column;
+116:   gap: var(--space-xs);
+117:   min-height: 0;
+118:   flex: 1;
+119: }
+120: 
+121: .playlist__tools {
+122:   display: flex;
+123:   gap: var(--space-2xs);
+124: }
+125: 
+126: .playlist__search {
+127:   display: flex;
+128:   flex: 1;
+129:   align-items: center;
+130:   gap: var(--space-2xs);
+131:   padding: 0 var(--space-xs);
+132:   border: 1px solid var(--border-subtle);
+133:   border-radius: var(--radius-md);
+134:   background: var(--bg-inset);
+135:   color: var(--text-muted);
+136: }
+137: 
+138: .playlist__search:focus-within {
+139:   border-color: var(--accent-border);
+140:   box-shadow: 0 0 0 2px var(--accent-subtle);
+141: }
+142: 
+143: .playlist__search input {
+144:   flex: 1;
+145:   min-width: 0;
+146:   height: 34px;
+147:   border: 0;
+148:   background: none;
+149:   color: var(--text-primary);
+150:   font: inherit;
+151:   font-size: var(--text-xs);
+152: }
+153: 
+154: .playlist__search input:focus {
+155:   outline: none;
+156: }
+157: 
+158: .playlist__shuffle,
+159: .playlist__retry {
+160:   display: inline-flex;
+161:   align-items: center;
+162:   justify-content: center;
+163:   gap: var(--space-2xs);
+164:   min-width: 34px;
+165:   height: 34px;
+166:   padding: 0 var(--space-xs);
+167:   border: 1px solid var(--border-subtle);
+168:   border-radius: var(--radius-md);
+169:   background: var(--bg-inset);
+170:   color: var(--text-secondary);
+171:   font-size: var(--text-xs);
+172:   cursor: pointer;
+173:   transition:
+174:     color var(--dur-fast) var(--ease-out),
+175:     border-color var(--dur-fast) var(--ease-out),
+176:     background var(--dur-fast) var(--ease-out);
+177: }
+178: 
+179: .playlist__shuffle:hover:not(:disabled),
+180: .playlist__retry:hover {
+181:   border-color: var(--accent-border);
+182:   color: var(--accent);
+183: }
+184: 
+185: .playlist__shuffle:disabled {
+186:   opacity: 0.45;
+187:   cursor: not-allowed;
+188: }
+189: 
+190: .playlist__meta {
+191:   display: flex;
+192:   justify-content: space-between;
+193:   color: var(--text-muted);
+194:   font-size: var(--text-2xs);
+195:   letter-spacing: 0.04em;
+196: }
+197: 
+198: .playlist__meta-hint {
+199:   color: var(--accent);
+200: }
+201: 
+202: .playlist__state {
+203:   display: flex;
+204:   flex: 1;
+205:   flex-direction: column;
+206:   align-items: center;
+207:   justify-content: center;
+208:   gap: var(--space-2xs);
+209:   padding: var(--space-lg);
+210:   color: var(--text-muted);
+211:   font-size: var(--text-xs);
+212:   text-align: center;
+213: }
+214: 
+215: .playlist__state--error {
+216:   color: var(--danger);
+217: }
+218: 
+219: .playlist__state small {
+220:   font-size: var(--text-2xs);
+221:   opacity: 0.8;
+222: }
+223: 
+224: .playlist__list {
+225:   flex: 1;
+226:   min-height: 0;
+227:   margin: 0;
+228:   padding: 0;
+229:   overflow-y: auto;
+230:   overscroll-behavior: contain;
+231:   list-style: none;
+232:   scrollbar-width: thin;
+233: }
+234: 
+235: .playlist__row {
+236:   display: grid;
+237:   grid-template-columns: 22px 1fr auto;
+238:   align-items: center;
+239:   gap: var(--space-xs);
+240:   width: 100%;
+241:   padding: var(--space-2xs) var(--space-xs);
+242:   border: 0;
+243:   border-radius: var(--radius-sm);
+244:   background: none;
+245:   color: inherit;
+246:   text-align: left;
+247:   cursor: pointer;
+248:   /* Long libraries: skip layout for rows that are far off-screen. */
+249:   content-visibility: auto;
+250:   contain-intrinsic-size: auto 46px;
+251:   transition: background var(--dur-fast) var(--ease-out);
+252: }
+253: 
+254: .playlist__row:hover {
+255:   background: var(--bg-hover);
+256: }
+257: 
+258: .playlist__row:focus-visible {
+259:   outline: 2px solid var(--accent);
+260:   outline-offset: -2px;
+261: }
+262: 
+263: .playlist__row.is-current {
+264:   background: color-mix(in srgb, var(--accent) 12%, transparent);
+265: }
+266: 
+267: .playlist__marker {
+268:   display: inline-flex;
+269:   align-items: center;
+270:   justify-content: center;
+271:   height: 18px;
+272:   color: var(--text-muted);
+273:   font-size: var(--text-2xs);
+274:   font-variant-numeric: tabular-nums;
+275: }
+276: 
+277: .playlist__row.is-current .playlist__marker {
+278:   color: var(--accent);
+279: }
+280: 
+281: .playlist__eq {
+282:   display: inline-flex;
+283:   align-items: flex-end;
+284:   gap: 2px;
+285:   height: 14px;
+286: }
+287: 
+288: .playlist__eq i {
+289:   width: 2px;
+290:   height: 100%;
+291:   border-radius: var(--radius-full);
+292:   background: var(--accent);
+293:   transform-origin: bottom;
+294:   animation: playlist-eq 0.9s ease-in-out infinite;
+295: }
+296: 
+297: .playlist__eq i:nth-child(2) {
+298:   animation-delay: 0.18s;
+299: }
+300: 
+301: .playlist__eq i:nth-child(3) {
+302:   animation-delay: 0.36s;
+303: }
+304: 
+305: @keyframes playlist-eq {
+306:   0%,
+307:   100% {
+308:     transform: scaleY(0.3);
+309:   }
+310:   50% {
+311:     transform: scaleY(1);
+312:   }
+313: }
+314: 
+315: .playlist__text {
+316:   min-width: 0;
+317: }
+318: 
+319: .playlist__title {
+320:   display: block;
+321:   overflow: hidden;
+322:   color: var(--text-primary);
+323:   font-size: var(--text-xs);
+324:   text-overflow: ellipsis;
+325:   white-space: nowrap;
+326: }
+327: 
+328: .playlist__row.is-current .playlist__title {
+329:   color: var(--accent);
+330:   font-weight: 600;
+331: }
+332: 
+333: .playlist__sub {
+334:   display: block;
+335:   overflow: hidden;
+336:   color: var(--text-muted);
+337:   font-size: var(--text-2xs);
+338:   text-overflow: ellipsis;
+339:   white-space: nowrap;
+340: }
+341: 
+342: .playlist__time {
+343:   color: var(--text-muted);
+344:   font-size: var(--text-2xs);
+345:   font-variant-numeric: tabular-nums;
+346: }
+347: 
+348: .sr-only {
+349:   position: absolute;
+350:   width: 1px;
+351:   height: 1px;
+352:   padding: 0;
+353:   margin: -1px;
+354:   overflow: hidden;
+355:   clip-path: inset(50%);
+356:   white-space: nowrap;
+357:   border: 0;
+358: }
+359: 
+360: @media (prefers-reduced-motion: reduce) {
+361:   .playlist__eq i {
+362:     animation: none;
+363:   }
+364: }
+365: </style>
+
+(End of file - total 365 lines)
+</content>

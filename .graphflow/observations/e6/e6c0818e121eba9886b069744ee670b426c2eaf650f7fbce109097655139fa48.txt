@@ -1,0 +1,314 @@
+<path>C:\Users\bisho\Desktop\bs-blog\src\components\SiteHeader.vue</path>
+<type>file</type>
+<content>
+1: <script setup lang="ts">
+2: import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+3: import { PhList, PhLockSimple, PhX } from '@phosphor-icons/vue'
+4: import { useRoute } from 'vue-router'
+5: import { useSite } from '@/composables/useSite'
+6: import AuthorAvatar from './AuthorAvatar.vue'
+7: import ThemeToggle from './ThemeToggle.vue'
+8: 
+9: const { site } = useSite()
+10: const route = useRoute()
+11: 
+12: const scrolled = ref(false)
+13: const menuOpen = ref(false)
+14: 
+15: const NAV = [
+16:   { name: 'home', label: '首页' },
+17:   { name: 'posts', label: '文章' },
+18:   { name: 'archive', label: '归档' },
+19:   { name: 'tags', label: '标签' },
+20:   { name: 'calendar', label: '日历' },
+21:   { name: 'about', label: '关于' },
+22: ] as const
+23: 
+24: /** Tag pages belong to the article section, so "文章" stays lit there. */
+25: function isActive(name: string): boolean {
+26:   const current = String(route.name ?? '')
+27:   if (name === 'posts') return current === 'posts' || current === 'tag'
+28:   return current === name
+29: }
+30: 
+31: function onScroll() {
+32:   scrolled.value = window.scrollY > 12
+33: }
+34: 
+35: onMounted(() => {
+36:   onScroll()
+37:   window.addEventListener('scroll', onScroll, { passive: true })
+38: })
+39: 
+40: onBeforeUnmount(() => {
+41:   window.removeEventListener('scroll', onScroll)
+42: })
+43: 
+44: watch(
+45:   () => route.fullPath,
+46:   () => {
+47:     menuOpen.value = false
+48:   },
+49: )
+50: </script>
+51: 
+52: <template>
+53:   <header class="header" :class="{ 'is-scrolled': scrolled }">
+54:     <div class="header__inner">
+55:       <RouterLink class="brand" :to="{ name: 'home' }">
+56:         <AuthorAvatar
+57:           v-if="site?.avatarUrl"
+58:           class="brand__avatar"
+59:           :src="site.avatarUrl"
+60:           :name="site.author"
+61:           :size="26"
+62:         />
+63:         <span v-else class="brand__mark" aria-hidden="true" />
+64:         <span class="brand__name">{{ site?.title ?? 'bs-blog' }}</span>
+65:       </RouterLink>
+66: 
+67:       <nav class="nav" aria-label="主导航">
+68:         <RouterLink
+69:           v-for="item in NAV"
+70:           :key="item.name"
+71:           class="nav__link"
+72:           :class="{ 'is-active': isActive(item.name) }"
+73:           :to="{ name: item.name }"
+74:         >
+75:           {{ item.label }}
+76:         </RouterLink>
+77:       </nav>
+78: 
+79:       <div class="header__actions">
+80:         <ThemeToggle />
+81:         <RouterLink
+82:           class="icon-btn"
+83:           :to="{ name: 'admin-posts' }"
+84:           title="管理后台"
+85:           aria-label="管理后台"
+86:         >
+87:           <PhLockSimple :size="18" weight="bold" />
+88:         </RouterLink>
+89:         <button
+90:           class="icon-btn header__burger"
+91:           type="button"
+92:           :aria-expanded="menuOpen"
+93:           aria-label="切换菜单"
+94:           @click="menuOpen = !menuOpen"
+95:         >
+96:           <component :is="menuOpen ? PhX : PhList" :size="20" weight="bold" />
+97:         </button>
+98:       </div>
+99:     </div>
+100: 
+101:     <Transition name="drawer">
+102:       <nav v-if="menuOpen" class="drawer" aria-label="移动导航">
+103:         <RouterLink
+104:           v-for="item in NAV"
+105:           :key="item.name"
+106:           class="drawer__link"
+107:           :class="{ 'is-active': isActive(item.name) }"
+108:           :to="{ name: item.name }"
+109:         >
+110:           {{ item.label }}
+111:         </RouterLink>
+112:       </nav>
+113:     </Transition>
+114:   </header>
+115: </template>
+116: 
+117: <style scoped>
+118: .header {
+119:   position: sticky;
+120:   top: 0;
+121:   z-index: var(--z-sticky);
+122:   border-bottom: 1px solid transparent;
+123:   transition:
+124:     background var(--dur-normal) var(--ease-out),
+125:     border-color var(--dur-normal) var(--ease-out),
+126:     backdrop-filter var(--dur-normal) var(--ease-out);
+127: }
+128: 
+129: .header.is-scrolled {
+130:   border-bottom-color: var(--border-subtle);
+131:   background: color-mix(in srgb, var(--bg-base) 78%, transparent);
+132:   backdrop-filter: blur(14px) saturate(1.4);
+133: }
+134: 
+135: .header__inner {
+136:   display: flex;
+137:   align-items: center;
+138:   gap: var(--space-lg);
+139:   max-width: var(--container-xl);
+140:   height: var(--header-h);
+141:   margin: 0 auto;
+142:   padding: 0 var(--space-lg);
+143: }
+144: 
+145: .brand {
+146:   display: inline-flex;
+147:   align-items: center;
+148:   gap: var(--space-sm);
+149:   color: var(--text-primary);
+150:   text-decoration: none;
+151: }
+152: 
+153: .brand__mark {
+154:   width: 10px;
+155:   height: 10px;
+156:   border-radius: 3px;
+157:   background: var(--accent);
+158:   box-shadow: 0 0 12px var(--glow-accent);
+159:   transition: transform var(--dur-normal) var(--ease-spring);
+160: }
+161: 
+162: .brand:hover .brand__mark {
+163:   transform: rotate(45deg) scale(1.2);
+164: }
+165: 
+166: .brand__avatar {
+167:   border-color: var(--accent-border);
+168:   transition: transform var(--dur-normal) var(--ease-spring);
+169: }
+170: 
+171: .brand:hover .brand__avatar {
+172:   transform: scale(1.08);
+173: }
+174: 
+175: .brand__name {
+176:   font-family: var(--font-display);
+177:   font-size: var(--text-lg);
+178:   letter-spacing: var(--tracking-tight);
+179: }
+180: 
+181: .nav {
+182:   display: flex;
+183:   align-items: center;
+184:   gap: var(--space-2xs);
+185:   margin-left: auto;
+186: }
+187: 
+188: .nav__link {
+189:   position: relative;
+190:   padding: var(--space-sm) var(--space-md);
+191:   border-radius: var(--radius-md);
+192:   color: var(--text-secondary);
+193:   font-size: var(--text-sm);
+194:   text-decoration: none;
+195:   transition:
+196:     color var(--dur-fast) var(--ease-out),
+197:     background var(--dur-fast) var(--ease-out);
+198: }
+199: 
+200: .nav__link:hover {
+201:   color: var(--text-primary);
+202:   background: var(--bg-hover);
+203: }
+204: 
+205: .nav__link.is-active {
+206:   color: var(--accent);
+207: }
+208: 
+209: .nav__link.is-active::after {
+210:   content: '';
+211:   position: absolute;
+212:   left: 50%;
+213:   bottom: 2px;
+214:   width: 16px;
+215:   height: 2px;
+216:   border-radius: 1px;
+217:   background: var(--accent);
+218:   transform: translateX(-50%);
+219: }
+220: 
+221: .header__actions {
+222:   display: flex;
+223:   align-items: center;
+224:   gap: var(--space-2xs);
+225: }
+226: 
+227: .icon-btn {
+228:   display: inline-flex;
+229:   align-items: center;
+230:   justify-content: center;
+231:   width: var(--hit-min);
+232:   height: var(--hit-min);
+233:   border: none;
+234:   border-radius: var(--radius-md);
+235:   background: transparent;
+236:   color: var(--text-secondary);
+237:   cursor: pointer;
+238:   transition:
+239:     color var(--dur-fast) var(--ease-out),
+240:     background var(--dur-fast) var(--ease-out);
+241: }
+242: 
+243: .icon-btn:hover {
+244:   color: var(--accent);
+245:   background: var(--bg-hover);
+246: }
+247: 
+248: .icon-btn:active {
+249:   transform: scale(0.94);
+250: }
+251: 
+252: .header__burger {
+253:   display: none;
+254: }
+255: 
+256: .drawer {
+257:   display: none;
+258:   flex-direction: column;
+259:   padding: var(--space-sm) var(--space-lg) var(--space-lg);
+260:   border-bottom: 1px solid var(--border-subtle);
+261:   background: var(--bg-elevated);
+262: }
+263: 
+264: .drawer__link {
+265:   padding: var(--space-md) var(--space-sm);
+266:   border-radius: var(--radius-md);
+267:   color: var(--text-secondary);
+268:   font-size: var(--text-base);
+269:   text-decoration: none;
+270: }
+271: 
+272: .drawer__link.is-active {
+273:   color: var(--accent);
+274:   background: var(--accent-subtle);
+275: }
+276: 
+277: .drawer-enter-active,
+278: .drawer-leave-active {
+279:   transition:
+280:     opacity var(--dur-fast) var(--ease-out),
+281:     transform var(--dur-fast) var(--ease-out);
+282: }
+283: 
+284: .drawer-enter-from,
+285: .drawer-leave-to {
+286:   opacity: 0;
+287:   transform: translateY(-8px);
+288: }
+289: 
+290: @media (max-width: 800px) {
+291:   .header__inner {
+292:     gap: var(--space-md);
+293:     padding: 0 var(--space-md);
+294:   }
+295: 
+296:   .nav {
+297:     display: none;
+298:   }
+299: 
+300:   .header__burger {
+301:     display: inline-flex;
+302:   }
+303: 
+304:   .drawer {
+305:     display: flex;
+306:   }
+307: }
+308: </style>
+
+(End of file - total 308 lines)
+</content>

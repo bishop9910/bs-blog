@@ -67,6 +67,13 @@ func run(confPath string) error {
 		biz.NewPostUsecase(store),
 		biz.NewMediaUsecase(store, cfg.Data.UploadDir, cfg.Data.UploadURL, cfg.Data.MaxUploadBytes),
 		biz.NewSiteUsecase(store),
+		biz.NewMusicUsecase(
+			// The music library lives on disk rather than in the store, so it
+			// takes the directory settings and a logger for the files it has to
+			// skip while scanning.
+			data.NewMusicRepo(cfg.Music.Dir, cfg.Music.Extensions, cfg.Music.Watch, cfg.Music.MaxUploadBytes, helper),
+			cfg.Music.MaxUploadBytes,
+		),
 		cfg,
 		logger,
 	)

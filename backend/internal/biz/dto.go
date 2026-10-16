@@ -121,6 +121,7 @@ type SiteMetaDTO struct {
 	Description string          `json:"description"`
 	Author      string          `json:"author"`
 	AvatarURL   string          `json:"avatarUrl"`
+	Wallpapers  []string        `json:"wallpapers"`
 	Socials     []SocialLinkDTO `json:"socials"`
 	FooterNote  string          `json:"footerNote"`
 	Stats       SiteStatsDTO    `json:"stats"`
@@ -205,6 +206,7 @@ type SiteInput struct {
 	Description string          `json:"description"`
 	Author      string          `json:"author"`
 	AvatarURL   string          `json:"avatarUrl"`
+	Wallpapers  []string        `json:"wallpapers"`
 	Socials     []SocialLinkDTO `json:"socials"`
 	FooterNote  string          `json:"footerNote"`
 }

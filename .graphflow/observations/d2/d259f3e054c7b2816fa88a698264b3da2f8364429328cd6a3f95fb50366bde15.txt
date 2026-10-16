@@ -1,0 +1,420 @@
+                                                                     t(i.textContent)&&s.
+                                                                                                   add(i)}let r=t.child
+                                                                                                   ElementCount;for(;r-
+                                                                                                   -;)Ji(t.children[r],
+                                                                                                   e,s);return s},Ki=(t
+                                                                                                   ,e={})=>{let s="";e|
+                                                                                                   |(e={});const i=O(e.
+                                                                                                   class)?` class="${e.
+                                                                                                   class}"`:"",r=$t(e.c
+                                                                                                   lone,!1),n=$t(e.wrap
+                                                                                                   ,!1),o=n?!0===n?"cli
+                                                                                                   p":n:!!r&&"clip";ret
+                                                                                                   urn n&&(s+=`<span${o
+                                                                                                   ?` style="overflow:$
+                                                                                                   {o};"`:""}>`),s+=`<s
+                                                                                                   pan${i}${r?' style="
+                                                                                                   position:relative;"'
+                                                                                                   :""} data-${t}="{i}"
+                                                                                                   >`,r?(s+="<span>{val
+                                                                                                   ue}</span>",s+=`<spa
+                                                                                                   n inert style="posit
+                                                                                                   ion:absolute;top:${"
+                                                                                                   top"===r?"-100%":"bo
+                                                                                                   ttom"===r?"100%":"0"
+                                                                                                   };left:${"left"===r?
+                                                                                                   "-100%":"right"===r?
+                                                                                                   "100%":"0"};white-sp
+                                                                                                   ace:nowrap;">{value}
+                                                                                                   </span>`):s+="{value
+                                                                                                   }",s+="</span>",n&&(
+                                                                                                   s+="</span>"),s},tr=
+                                                                                                   (t,e,s,i,r,n,o,a,l)=
+                                                                                                   >{const h=r===Oi,d=r
+                                                                                                   ===Hi,c=`_${r}_`,u=z
+                                                                                                   (t)?t(s):t,p=h?"bloc
+                                                                                                   k":"inline-block";Ui
+                                                                                                   .innerHTML=u.replace
+                                                                                                   (Pi,`<i class="${c}"
+                                                                                                   ></i>`).replace(Fi,`
+                                                                                                   ${d?l:h?o:a}`);const
+                                                                                                    m=Ui.content,f=m.fi
+                                                                                                   rstElementChild,g=m.
+                                                                                                   querySelector(`[data
+                                                                                                   -${r}]`)||f,y=m.quer
+                                                                                                   ySelectorAll(`i.${c}
+                                                                                                   `),_=y.length;if(_){
+                                                                                                   f.style.display=p,g.
+                                                                                                   style.display=p,g.se
+                                                                                                   tAttribute(Xi,`${o}`
+                                                                                                   ),h||(g.setAttribute
+                                                                                                   ("data-word",`${a}`)
+                                                                                                   ,d&&g.setAttribute("
+                                                                                                   data-char",`${l}`));
+                                                                                                   let t=_;for(;t--;){c
+                                                                                                   onst e=y[t],i=e.pare
+                                                                                                   ntElement;i.style.di
+                                                                                                   splay=p,h?i.innerHTM
+                                                                                                   L=s.innerHTML:i.repl
+                                                                                                   aceChild(s.cloneNode
+                                                                                                   (!0),e)}e.push(g),i.
+                                                                                                   appendChild(m)}else 
+                                                                                                   console.warn('The ex
+                                                                                                   pression "{value}" i
+                                                                                                   s missing from the p
+                                                                                                   rovided template.');
+                                                                                                   return n&&(f.style.o
+                                                                                                   utline=`1px dotted $
+                                                                                                   {Zi[r]}`),f};class e
+                                                                                                   r{constructor(t,s={}
+                                                                                                   ){Yi||(Yi=Bi?new Bi(
+                                                                                                   [],{granularity:zi})
+                                                                                                   :{segment:t=>{const 
+                                                                                                   e=[],s=t.split(Mi);f
+                                                                                                   or(let t=0,i=s.lengt
+                                                                                                   h;t<i;t++){const i=s
+                                                                                                   [t];e.push({segment:
+                                                                                                   i,isWordLike:!Vi.tes
+                                                                                                   t(i)})}return e}}),W
+                                                                                                   i||(Wi=Bi?new Bi([],
+                                                                                                   {granularity:"graphe
+                                                                                                   me"}):{segment:t=>[.
+                                                                                                   ..t].map(t=>({segmen
+                                                                                                   t:t}))}),!Ui&&e&&(Ui
+                                                                                                   =i.createElement("te
+                                                                                                   mplate")),A.current&
+                                                                                                   &A.current.register(
+                                                                                                   this);const{words:r,
+                                                                                                   chars:n,lines:o,acce
+                                                                                                   ssible:a,includeSpac
+                                                                                                   es:l,debug:h}=s,d=(t
+                                                                                                   =F(t)?t[0]:t)&&t.nod
+                                                                                                   eType?t:(he(t)||[])[
+                                                                                                   0],c=!0===o?{}:o,u=!
+                                                                                                   0===r||H(r)?{}:r,p=!
+                                                                                                   0===n?{}:n;this.debu
+                                                                                                   g=$t(h,!1),this.incl
+                                                                                                   udeSpaces=$t(l,!1),t
+                                                                                                   his.accessible=$t(a,
+                                                                                                   !0),this.linesOnly=c
+                                                                                                   &&!u&&!p,this.lineTe
+                                                                                                   mplate=M(c)?Ki(Oi,c)
+                                                                                                   :c,this.wordTemplate
+                                                                                                   =M(u)||this.linesOnl
+                                                                                                   y?Ki(zi,u):u,this.ch
+                                                                                                   arTemplate=M(p)?Ki(H
+                                                                                                   i,p):p,this.$target=
+                                                                                                   d,this.html=d&&d.inn
+                                                                                                   erHTML,this.lines=[]
+                                                                                                   ,this.words=[],this.
+                                                                                                   chars=[],this.effect
+                                                                                                   s=[],this.effectsCle
+                                                                                                   anups=[],this.cache=
+                                                                                                   null,this.ready=!1,t
+                                                                                                   his.width=0,this.res
+                                                                                                   izeTimeout=null;cons
+                                                                                                   t m=()=>this.html&&(
+                                                                                                   c||u||p)&&this.split
+                                                                                                   ();this.resizeObserv
+                                                                                                   er=new ResizeObserve
+                                                                                                   r(()=>{clearTimeout(
+                                                                                                   this.resizeTimeout),
+                                                                                                   this.resizeTimeout=s
+                                                                                                   etTimeout(()=>{const
+                                                                                                    t=d.offsetWidth;t!=
+                                                                                                   =this.width&&(this.w
+                                                                                                   idth=t,m())},150)}),
+                                                                                                   this.lineTemplate&&!
+                                                                                                   this.ready?i.fonts.r
+                                                                                                   eady.then(m):m(),d?t
+                                                                                                   his.resizeObserver.o
+                                                                                                   bserve(d):console.wa
+                                                                                                   rn("No Text Splitter
+                                                                                                    target found.")}add
+                                                                                                   Effect(t){if(!z(t))r
+                                                                                                   eturn console.warn("
+                                                                                                   Effect must return a
+                                                                                                    function."),this;co
+                                                                                                   nst e=ds(t);return t
+                                                                                                   his.effects.push(e),
+                                                                                                   this.ready&&(this.ef
+                                                                                                   fectsCleanups[this.e
+                                                                                                   ffects.length-1]=e(t
+                                                                                                   his)),this}revert(){
+                                                                                                   return clearTimeout(
+                                                                                                   this.resizeTimeout),
+                                                                                                   this.lines.length=th
+                                                                                                   is.words.length=this
+                                                                                                   .chars.length=0,this
+                                                                                                   .resizeObserver.disc
+                                                                                                   onnect(),this.effect
+                                                                                                   sCleanups.forEach(t=
+                                                                                                   >z(t)?t(this):t.reve
+                                                                                                   rt&&t.revert()),this
+                                                                                                   .$target.innerHTML=t
+                                                                                                   his.html,this}splitN
+                                                                                                   ode(t){const e=this.
+                                                                                                   wordTemplate,s=this.
+                                                                                                   charTemplate,r=this.
+                                                                                                   includeSpaces,n=this
+                                                                                                   .debug,o=t.nodeType;
+                                                                                                   if(3===o){const o=t.
+                                                                                                   nodeValue;if(o.trim(
+                                                                                                   )){const a=[],l=this
+                                                                                                   .words,h=this.chars,
+                                                                                                   d=Yi.segment(o),c=i.
+                                                                                                   createDocumentFragme
+                                                                                                   nt();let u=null;for(
+                                                                                                   const t of d){const 
+                                                                                                   e=t.segment,s=qi(t);
+                                                                                                   if(!u||s&&u&&qi(u))a
+                                                                                                   .push(e);else{const 
+                                                                                                   t=a.length-1,s=a[t];
+                                                                                                   Mi.test(s)||Mi.test(
+                                                                                                   e)?a.push(e):a[t]+=e
+                                                                                                   }u=t}for(let t=0,o=a
+                                                                                                   .length;t<o;t++){con
+                                                                                                   st o=a[t];if(o.trim(
+                                                                                                   )){const d=a[t+1],u=
+                                                                                                   r&&d&&!d.trim(),p=o,
+                                                                                                   m=s?Wi.segment(p):nu
+                                                                                                   ll,f=s?i.createDocum
+                                                                                                   entFragment():i.crea
+                                                                                                   teTextNode(u?o+" ":o
+                                                                                                   );if(s){const t=[...
+                                                                                                   m];for(let e=0,r=t.l
+                                                                                                   ength;e<r;e++){const
+                                                                                                    o=t[e],a=e===r-1&&u
+                                                                                                   ?o.segment+" ":o.seg
+                                                                                                   ment,d=i.createTextN
+                                                                                                   ode(a);tr(s,h,d,f,Hi
+                                                                                                   ,n,-1,l.length,h.len
+                                                                                                   gth)}}e?tr(e,l,f,c,z
+                                                                                                   i,n,-1,l.length,h.le
+                                                                                                   ngth):s?c.appendChil
+                                                                                                   d(f):c.appendChild(i
+                                                                                                   .createTextNode(o)),
+                                                                                                   u&&t++}else{if(t&&r)
+                                                                                                   continue;c.appendChi
+                                                                                                   ld(i.createTextNode(
+                                                                                                   o))}}t.parentNode.re
+                                                                                                   placeChild(c,t)}}els
+                                                                                                   e if(1===o){const e=
+                                                                                                   [...t.childNodes];fo
+                                                                                                   r(let t=0,s=e.length
+                                                                                                   ;t<s;t++)this.splitN
+                                                                             
+
+[...]
+
+      ?a:"",h=l.length,d=t
+                                                                                                   .seed||0,c=void 0===
+                                                                                                   t.override||t.overri
+                                                                                                   de,u=t.revealRate||6
+                                                                                                   0,p=1e3*I.timeScale/
+                                                                                                   u,m=t.settleDuration
+                                                                                                   ||300*I.timeScale,f=
+                                                                                                   t.settleRate||30,g=t
+                                                                                                   .duration,y=t.reveal
+                                                                                                   Delay,b=t.delay,v=t.
+                                                                                                   onChange||_;return(t
+                                                                                                   ,a,u,_)=>{const T="f
+                                                                                                   unction"==typeof e?e
+                                                                                                   (t,a,u):e||"a-zA-Z0-
+                                                                                                   9!%#_",x=rr(nr[T]||T
+                                                                                                   ),S=x.length-1,w="fu
+                                                                                                   nction"==typeof g?g(
+                                                                                                   t,a,u):g,$="function
+                                                                                                   "==typeof y?y(t,a,u)
+                                                                                                   :y||0,C="function"==
+                                                                                                   typeof b?b(t,a,u):b|
+                                                                                                   |0,E=d?Si(d):Si();or
+                                                                                                   .has(t)||or.set(t,t.
+                                                                                                   textContent);const k
+                                                                                                   =_?_._value:t.textCo
+                                                                                                   ntent,N=void 0!==i?"
+                                                                                                   function"==typeof i?
+                                                                                                   i(t,a,u):i:_?_._valu
+                                                                                                   e:or.get(t),D=" "===
+                                                                                                   N||"&nbsp;"===N?" ":
+                                                                                                   N,A=" "===k?0:k.leng
+                                                                                                   th,R=D.length,L=!0==
+                                                                                                   =c?x:"string"==typeo
+                                                                                                   f c&&c.length>0?rr(n
+                                                                                                   r[c]||c):null,B=L?L.
+                                                                                                   length-1:0,P=" "===c
+                                                                                                   ?" ":null,F=""===c?R
+                                                                                                   :Math.max(A,R),M=w>0
+                                                                                                   ?w:(F-1)*p+m,V=ct((M
+                                                                                                   +$)/I.timeScale,0)*I
+                                                                                                   .timeScale,O=$>0?ct(
+                                                                                                   $/V,12):0,z=void 0==
+                                                                                                   =r||"auto"===r?R<A?"
+                                                                                                   right":"left":r,H=ne
+                                                                                                   w Int32Array(F);if("
+                                                                                                   random"===z){for(let
+                                                                                                    t=0;t<F;t++)H[t]=t;
+                                                                                                   for(let t=F-1;t>0;t-
+                                                                                                   -){const e=E(0,t),s=
+                                                                                                   H[t];H[t]=H[e],H[e]=
+                                                                                                   s}}else{const t="rig
+                                                                                                   ht"===z?(""!==c&&A?A
+                                                                                                   :F)-1:"center"===z?(
+                                                                                                   (""!==c&&A?A:F)-1)/2
+                                                                                                   :"number"==typeof z?
+                                                                                                   z:0,e=Math.abs,s=new
+                                                                                                    Array(F);for(let t=
+                                                                                                   0;t<F;t++)s[t]=t;s.s
+                                                                                                   ort((s,i)=>e(s-t)-e(
+                                                                                                   i-t));for(let t=0;t<
+                                                                                                   F;t++)H[s[t]]=t}if(n
+                                                                                                   ){const t=F-1;for(le
+                                                                                                   t e=0;e<F;e++)H[e]=t
+                                                                                                   -H[e]}const X=ct(m/M
+                                                                                                   ,12),Y=ct((1-X)/F,12
+                                                                                                   ),W=h*Y,U=ct(1e3*I.t
+                                                                                                   imeScale/(f*V),12),q
+                                                                                                   =new Float32Array(F)
+                                                                                                   ,j=new Float32Array(
+                                                                                                   F),G=o>0?o*X:0;for(l
+                                                                                                   et t=0;t<F;t++){cons
+                                                                                                   t e=G>0?(E(0,2e3)-1e
+                                                                                                   3)/1e3*G:0,s=G>0?(E(
+                                                                                                   0,2e3)-1e3)/1e3*G:0;
+                                                                                                   q[t]=H[t]*Y+e,j[t]=M
+                                                                                                   ath.ceil((q[t]+X+s)/
+                                                                                                   U)*U}if(R<F&&"left"!
+                                                                                                   ==z&&"right"!==z&&"r
+                                                                                                   andom"!==z){let t=0;
+                                                                                                   for(let e=R;e<F;e++)
+                                                                                                   j[e]>t&&(t=j[e]);con
+                                                                                                   st e=new Array(R);fo
+                                                                                                   r(let t=0;t<R;t++)e[
+                                                                                                   t]=t;e.sort((t,e)=>H
+                                                                                                   [t]-H[e]);const s=(1
+                                                                                                   -t)/R;for(let i=0;i<
+                                                                                                   R;i++){const r=t+i*s
+                                                                                                   ;r>j[e[i]]&&(j[e[i]]
+                                                                                                   =r)}}const Z=new Arr
+                                                                                                   ay(F);for(let t=0;t<
+                                                                                                   F;t++)Z[t]=x[E(0,S)]
+                                                                                                   ;const Q=L?L===x?Z:n
+                                                                                                   ew Array(F):null;if(
+                                                                                                   Q&&Q!==Z)for(let t=0
+                                                                                                   ;t<F;t++)Q[t]=P||L[E
+                                                                                                   (0,L.length-1)];let 
+                                                                                                   J=k;if(!_)if(""===c)
+                                                                                                   J="";else if(L){J=""
+                                                                                                   ;for(let t=0;t<A;t++
+                                                                                                   )J+=" "===k[t]?" ":Q
+                                                                                                   [t]}let K=-1,tt=-1,e
+                                                                                                   t="";const st=""!==c
+                                                                                                   ,it=!!L,rt=h>0;retur
+                                                                                                   n{from:0,to:1,durati
+                                                                                                   on:V,delay:C,ease:"l
+                                                                                                   inear",modifier:t=>{
+                                                                                                   if(t===K)return et;i
+                                                                                                   f(K=t,C>0&&t<=0)retu
+                                                                                                   rn et=k,k;if(t<=0)re
+                                                                                                   turn et=J,J;if(t>=1)
+                                                                                                   return et=D,D;et="";
+                                                                                                   const e=t/U|0,i=e!==
+                                                                                                   tt;i&&(tt=e);const r
+                                                                                                   =O>0?(t-O)/(1-O):t,n
+                                                                                                   =r>0?s(r):0;for(let 
+                                                                                                   t=0;t<F;t++){const e
+                                                                                                   =q[t];n>=j[t]?t<R&&(
+                                                                                                   et+=D[t]):n<=0||n<e?
+                                                                                                   st&&t<A&&(it?" "===k
+                                                                                                   [t]?et+=" ":(i&&(Q[t
+                                                                                                   ]=P||L[E(0,B)]),et+=
+                                                                                                   Q[t]):et+=k[t]):t<R&
+                                                                                                   &" "===D[t]||t<A&&" 
+                                                                                                   "===k[t]?et+=" ":rt&
+                                                                                                   &n-e<W?et+=l[h-1-((n
+                                                                                                   -e)/Y|0)]:(i&&(Z[t]=
+                                                                                                   x[E(0,S)]),et+=Z[t])
+                                                                                                   }return i&&v(et,n),e
+                                                                                                   t}}}};var lr=Object.
+                                                                                                   freeze({__proto__:nu
+                                                                                                   ll,TextSplitter:er,s
+                                                                                                   crambleText:ar,split
+                                                                                                   :ir,splitText:sr});t
+                                                                                                   .$=ce,t.Animatable=Y
+                                                                                                   e,t.AutoLayout=ri,t.
+                                                                                                   Draggable=ls,t.JSAni
+                                                                                                   mation=Me,t.Scope=cs
+                                                                                                   ,t.ScrollObserver=vs
+                                                                                                   ,t.Spring=je,t.TextS
+                                                                                                   plitter=er,t.Timelin
+                                                                                                   e=He,t.Timer=le,t.WA
+                                                                                                   APIAnimation=Ps,t.ad
+                                                                                                   dChild=vt,t.animate=
+                                                                                                   (t,e)=>I.editor?I.ed
+                                                                                                   itor.addAnimation(t,
+                                                                                                   e):new Me(t,e,null,0
+                                                                                                   ,!1).init(),t.clamp=
+                                                                                                   yi,t.cleanInlineStyl
+                                                                                                   es=zt,t.createAnimat
+                                                                                                   able=(t,e)=>new Ye(t
+                                                                                                   ,e),t.createDraggabl
+                                                                                                   e=(t,e)=>new ls(t,e)
+                                                                                                   ,t.createDrawable=Ii
+                                                                                                   ,t.createLayout=(t,e
+                                                                                                   )=>new ri(t,e),t.cre
+                                                                                                   ateMotionPath=Ai,t.c
+                                                                                                   reateScope=t=>new cs
+                                                                                                   (t),t.createSeededRa
+                                                                                                   ndom=Si,t.createSpri
+                                                                                                   ng=Ze,t.createTimeli
+                                                                                                   ne=Xe,t.createTimer=
+                                                                                                   t=>new le(t,null,0).
+                                                                                                   init(),t.cubicBezier
+                                                                                                   =xs,t.damp=vi,t.degT
+                                                                                                   oRad=mi,t.eases=Te,t
+                                                                                                   .easings=Cs,t.engine
+                                                                                                   =qt,t.forEachChildre
+                                                                                                   n=_t,t.get=ts,t.glob
+                                                                                                   als=I,t.irregular=$s
+                                                                                                   ,t.keepTime=ds,t.ler
+                                                                                                   p=bi,t.linear=ws,t.m
+                                                                                                   apRange=pi,t.morphTo
+                                                                                                   =Ri,t.onScroll=(t={}
+                                                                                                   )=>new vs(t),t.padEn
+                                                                                                   d=ci,t.padStart=di,t
+                                                                                                   .radToDeg=fi,t.rando
+                                                                                                   m=Ti,t.randomPick=wi
+                                                                                                   ,t.remove=ss,t.remov
+                                                                                                   eChild=bt,t.round=_i
+                                                                                                   ,t.roundPad=hi,t.scr
+                                                                                                   ambleText=ar,t.scrol
+                                                                                                   lContainers=ps,t.set
+                                                                                                   =es,t.shuffle=$i,t.s
+                                                                                                   nap=gi,t.split=ir,t.
+                                                                                                   splitText=sr,t.sprin
+                                                                                                   g=Ge,t.stagger=Ci,t.
+                                                                                                   steps=Ss,t.svg=Li,t.
+                                                                                                   sync=hs,t.text=lr,t.
+                                                                                                   utils=Ei,t.waapi=Fs,
+                                                                                                   t.wrap=ui});        
+C:\Users\bisho\Desktop\bs-blog\node_modules\animejs\dist\modules\animation\animation.js        464             // Fill 
+                                                                                                   in non existing comp
+                                                                                                   lex values          
+C:\Users\bisho\Desktop\bs-blog\node_modules\animejs\dist\modules\text\scramble.js              195     let fillStartTex
+                                                                                                   t = startingText;   
+C:\Users\bisho\Desktop\bs-blog\node_modules\animejs\dist\modules\text\scramble.js              198         fillStartTex
+                                                                                                   t = '';             
+C:\Users\bisho\Desktop\bs-blog\node_modules\animejs\dist\modules\text\scramble.js              200         fillStartTex
+                                                                                                   t = '';             
+C:\Users\bisho\Desktop\bs-blog\node_modules\animejs\dist\modules\text\scramble.js              202           fillStartT
+                                                                                                   ext += startingText[
+                                                                                                   c] === ' ' ? ' ' : /
+                                                                                                   ** @type {Array<Stri
+                                                                                                   ng>} */(overrideCach
+                                                                                                   e)[c];              
+
+
+
+[output truncated; full output: C:\Users\bisho\AppData\Local\Temp\dsh-subprocess-soyQ3f\dsh-subprocess-61600-3-10ff28c41d63-stdout.log]
+
+(Omitted 14427 bytes. Full formatted result stored at: C:\Users\bisho\AppData\Local\Temp\dsh-spill-0wFwv4\session-cbe82eec430d\161f08ea297d-pwsh.txt. Use read with offset/limit, or grep this path to search within it.)

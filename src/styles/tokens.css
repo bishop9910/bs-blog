@@ -71,6 +71,12 @@
   --text-inverse: var(--p-zinc-950);
   --text-on-accent: var(--p-white);
 
+  /* Overlays that sit on top of a photo (wallpaper preview). Deliberately not
+     redefined per theme: an image can be bright in either one, so the scrim
+     stays dark and the label stays light. */
+  --scrim: color-mix(in srgb, var(--p-zinc-950) 58%, transparent);
+  --text-on-scrim: var(--p-zinc-50);
+
   --accent: var(--p-pink-500);
   --accent-hover: var(--p-pink-400);
   --accent-pressed: var(--p-pink-600);

@@ -9,6 +9,14 @@ declare module 'vue-router' {
     /** Marks the admin shell (different chrome, no grain/cursor). */
     admin?: boolean
     title?: string
+    /**
+     * Position of a public page in the site's own reading order — the header's
+     * nav list, with detail pages placed just after the list they belong to.
+     * The route transition reads it to decide which way a page should travel,
+     * so going "back to the archive" does not arrive looking like going
+     * forward to it.
+     */
+    order?: number
   }
 }
 
@@ -21,49 +29,49 @@ const routes: RouteRecordRaw[] = [
         path: '',
         name: 'home',
         component: () => import('@/views/HomeView.vue'),
-        meta: { title: '首页' },
+        meta: { title: '首页', order: 0 },
       },
       {
         path: 'posts',
         name: 'posts',
         component: () => import('@/views/PostListView.vue'),
-        meta: { title: '全部文章' },
+        meta: { title: '全部文章', order: 1 },
       },
       {
         path: 'post/:slug',
         name: 'post',
         component: () => import('@/views/PostDetailView.vue'),
-        meta: { title: '文章' },
+        meta: { title: '文章', order: 2 },
       },
       {
         path: 'archive',
         name: 'archive',
         component: () => import('@/views/ArchiveView.vue'),
-        meta: { title: '归档' },
+        meta: { title: '归档', order: 3 },
       },
       {
         path: 'tags',
         name: 'tags',
         component: () => import('@/views/TagsView.vue'),
-        meta: { title: '标签' },
+        meta: { title: '标签', order: 4 },
       },
       {
         path: 'tag/:slug',
         name: 'tag',
         component: () => import('@/views/PostListView.vue'),
-        meta: { title: '标签' },
+        meta: { title: '标签', order: 5 },
       },
       {
         path: 'calendar',
         name: 'calendar',
         component: () => import('@/views/CalendarView.vue'),
-        meta: { title: '日历' },
+        meta: { title: '日历', order: 6 },
       },
       {
         path: 'about',
         name: 'about',
         component: () => import('@/views/AboutView.vue'),
-        meta: { title: '关于' },
+        meta: { title: '关于', order: 7 },
       },
     ],
   },
@@ -102,6 +110,12 @@ const routes: RouteRecordRaw[] = [
         name: 'admin-media',
         component: () => import('@/views/admin/MediaView.vue'),
         meta: { requiresAuth: true, admin: true, title: '媒体库' },
+      },
+      {
+        path: 'music',
+        name: 'admin-music',
+        component: () => import('@/views/admin/MusicView.vue'),
+        meta: { requiresAuth: true, admin: true, title: '音乐库' },
       },
       {
         path: 'settings',

@@ -119,6 +119,10 @@ type SiteProfile struct {
 	Description string `gorm:"size:500;not null;default:''"`
 	Author      string `gorm:"size:80;not null;default:''"`
 	AvatarURL   string `gorm:"size:512;not null;default:''"`
+	// Wallpapers is a JSON array of image URLs. A visited page picks one at
+	// random, so the list is a pool rather than a single chosen image — which is
+	// why it is one text column instead of a row per image.
+	Wallpapers string `gorm:"type:text;not null;default:'[]'"`
 	// Socials is a JSON array of {icon,label,url} objects.
 	Socials    string `gorm:"type:text;not null;default:'[]'"`
 	FooterNote string `gorm:"size:300;not null;default:''"`

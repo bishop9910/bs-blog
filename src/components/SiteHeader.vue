@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { PhList, PhLockSimple, PhX } from '@phosphor-icons/vue'
 import { useRoute } from 'vue-router'
 import { useSite } from '@/composables/useSite'
+import { scrambleTo } from '@/utils/anime'
 import AuthorAvatar from './AuthorAvatar.vue'
 import ThemeToggle from './ThemeToggle.vue'
 
@@ -11,6 +12,30 @@ const route = useRoute()
 
 const scrolled = ref(false)
 const menuOpen = ref(false)
+const brandName = ref<HTMLElement | null>(null)
+
+/** Settled wordmark: the profile loads async, so fall back to the project name. */
+const brandTitle = computed(() => site.value?.title?.trim() || 'bs-blog')
+
+/** The running reveal, kept so a new route can cancel it instead of stacking. */
+let scramble: ReturnType<typeof scrambleTo> = null
+
+/**
+ * Replay the wordmark reveal. anime.js writes the element's innerHTML, so this
+ * has to run *after* Vue committed the current title (nextTick) — otherwise the
+ * patch would overwrite the animation's frames or scramble an empty string.
+ *
+ * The span is aria-hidden and the link carries the plain title as its label:
+ * screen readers read the settled name, never the shuffled frames.
+ */
+function playScramble() {
+  const el = brandName.value
+  const title = brandTitle.value
+  if (!el || !title) return
+
+  scramble?.cancel()
+  scramble = scrambleTo(el, title, { chars: 'A-Z0-9', from: 'left' })
+}
 
 const NAV = [
   { name: 'home', label: '首页' },
@@ -35,10 +60,14 @@ function onScroll() {
 onMounted(() => {
   onScroll()
   window.addEventListener('scroll', onScroll, { passive: true })
+  // nextTick: the first paint of the header is the only moment a reveal reads as
+  // "the site introducing itself", and the ref is guaranteed to be bound.
+  void nextTick(playScramble)
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('scroll', onScroll)
+  scramble?.cancel()
 })
 
 watch(
@@ -47,12 +76,18 @@ watch(
     menuOpen.value = false
   },
 )
+
+// Route changes re-introduce the section; the async profile re-titles the mark.
+// `path` rather than `fullPath`: the public list paginates through `?page=`,
+// and re-scrambling the wordmark on every page click would read as noise.
+// flush: 'post' keeps this behind Vue's own DOM patch of the wordmark.
+watch([brandTitle, () => route.path], () => void nextTick(playScramble), { flush: 'post' })
 </script>
 
 <template>
   <header class="header" :class="{ 'is-scrolled': scrolled }">
     <div class="header__inner">
-      <RouterLink class="brand" :to="{ name: 'home' }">
+      <RouterLink class="brand" :to="{ name: 'home' }" :aria-label="brandTitle">
         <AuthorAvatar
           v-if="site?.avatarUrl"
           class="brand__avatar"
@@ -61,7 +96,7 @@ watch(
           :size="26"
         />
         <span v-else class="brand__mark" aria-hidden="true" />
-        <span class="brand__name">{{ site?.title ?? 'bs-blog' }}</span>
+        <span ref="brandName" class="brand__name" aria-hidden="true">{{ brandTitle }}</span>
       </RouterLink>
 
       <nav class="nav" aria-label="主导航">

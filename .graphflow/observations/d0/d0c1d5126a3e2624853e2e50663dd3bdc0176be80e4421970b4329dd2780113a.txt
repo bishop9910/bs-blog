@@ -1,0 +1,384 @@
+<path>C:\Users\bisho\Desktop\bs-blog\src\views\HomeView.vue</path>
+<type>file</type>
+<content>
+1: <script setup lang="ts">
+2: import { computed, onMounted, ref } from 'vue'
+3: import { PhArrowRight, PhWarningCircle } from '@phosphor-icons/vue'
+4: import { listPublished, listTags } from '@/api/posts'
+5: import type { PostSummary, Tag } from '@/types/blog'
+6: import { useSite } from '@/composables/useSite'
+7: import { useTypewriter } from '@/composables/useTypewriter'
+8: import { formatCount } from '@/utils/format'
+9: import AuthorAvatar from '@/components/AuthorAvatar.vue'
+10: import EmptyState from '@/components/EmptyState.vue'
+11: import PostCard from '@/components/PostCard.vue'
+12: import TagPill from '@/components/TagPill.vue'
+13: 
+14: const { site } = useSite()
+15: 
+16: const authorName = computed(() => site.value?.author?.trim() || site.value?.title?.trim() || 'bs-blog')
+17: 
+18: const HERO_LINES = ['代码、文字，和一些没想清楚的想法。', '慢慢写，慢慢看。', '欢迎随便逛逛。']
+19: const { text: heroText, start: startHero } = useTypewriter(HERO_LINES, { speed: 58, hold: 2000 })
+20: 
+21: const posts = ref<PostSummary[]>([])
+22: const tags = ref<Tag[]>([])
+23: const loading = ref(true)
+24: const error = ref('')
+25: 
+26: const lead = computed(() => posts.value[0])
+27: const rest = computed(() => posts.value.slice(1))
+28: 
+29: const statItems = computed(() => {
+30:   const stats = site.value?.stats
+31:   if (!stats) return []
+32:   return [
+33:     { label: '文章', value: formatCount(stats.postCount) },
+34:     { label: '标签', value: formatCount(stats.tagCount) },
+35:     { label: '字数', value: formatCount(stats.wordCount) },
+36:   ]
+37: })
+38: 
+39: onMounted(async () => {
+40:   startHero()
+41:   try {
+42:     const [page, tagList] = await Promise.all([
+43:       listPublished({ page: 1, pageSize: 7, sort: 'published', order: 'desc' }),
+44:       listTags(),
+45:     ])
+46:     posts.value = page.items
+47:     tags.value = tagList.tags
+48:   } catch (caught) {
+49:     error.value = caught instanceof Error ? caught.message : '加载失败'
+50:   } finally {
+51:     loading.value = false
+52:   }
+53: })
+54: </script>
+55: 
+56: <template>
+57:   <div class="home">
+58:     <section class="hero">
+59:       <div class="hero__id">
+60:         <AuthorAvatar :src="site?.avatarUrl" :name="authorName" :size="88" ring />
+61:         <div class="hero__id-text">
+62:           <p class="eyebrow">个人博客</p>
+63:           <p v-if="site?.author" class="hero__author">{{ site.author }}</p>
+64:         </div>
+65:       </div>
+66: 
+67:       <h1 class="hero__title">{{ site?.title ?? 'bs-blog' }}</h1>
+68:       <p class="hero__tagline">{{ site?.tagline || '一个人的写作空间。' }}</p>
+69: 
+70:       <p class="hero__status">
+71:         <span class="hero__prompt" aria-hidden="true">❯</span>
+72:         <span class="hero__typed">{{ heroText }}</span>
+73:         <span class="hero__caret" aria-hidden="true" />
+74:       </p>
+75: 
+76:       <div class="hero__actions">
+77:         <RouterLink class="btn btn--primary" :to="{ name: 'posts' }">
+78:           开始阅读
+79:           <PhArrowRight :size="16" weight="bold" />
+80:         </RouterLink>
+81:         <RouterLink class="btn" :to="{ name: 'archive' }">按时间浏览</RouterLink>
+82:       </div>
+83: 
+84:       <dl v-if="statItems.length > 0" class="hero__stats">
+85:         <div v-for="item in statItems" :key="item.label" class="hero__stat">
+86:           <dt>{{ item.label }}</dt>
+87:           <dd>{{ item.value }}</dd>
+88:         </div>
+89:       </dl>
+90:     </section>
+91: 
+92:     <section class="section">
+93:       <header class="section__head">
+94:         <h2 class="section__title">最新文章</h2>
+95:         <RouterLink class="section__more" :to="{ name: 'posts' }">全部文章</RouterLink>
+96:       </header>
+97: 
+98:       <div v-if="loading" class="skeleton-grid">
+99:         <div v-for="n in 3" :key="n" class="skeleton" />
+100:       </div>
+101: 
+102:       <EmptyState
+103:         v-else-if="error"
+104:         :title="error"
+105:         description="看起来后端没有在运行。启动 `go run ./cmd/server` 后刷新即可。"
+106:       >
+107:         <button class="btn" type="button" @click="$router.go(0)">
+108:           <PhWarningCircle :size="16" />
+109:           重新加载
+110:         </button>
+111:       </EmptyState>
+112: 
+113:       <EmptyState
+114:         v-else-if="!lead"
+115:         title="还没有文章"
+116:         description="第一篇文章一旦发布，就会出现在这里。"
+117:       >
+118:         <RouterLink class="btn btn--primary" :to="{ name: 'admin-post-new' }">
+119:           去写第一篇
+120:         </RouterLink>
+121:       </EmptyState>
+122: 
+123:       <div v-else class="bento">
+124:         <PostCard class="bento__lead" :post="lead" featured />
+125:         <PostCard v-for="post in rest" :key="post.id" class="bento__item" :post="post" />
+126:       </div>
+127:     </section>
+128: 
+129:     <section v-if="tags.length > 0" class="section">
+130:       <header class="section__head">
+131:         <h2 class="section__title">标签</h2>
+132:         <RouterLink class="section__more" :to="{ name: 'tags' }">全部标签</RouterLink>
+133:       </header>
+134:       <div class="tag-cloud">
+135:         <TagPill
+136:           v-for="tag in tags.slice(0, 16)"
+137:           :key="tag.id"
+138:           :tag="tag"
+139:           :count="tag.postCount"
+140:         />
+141:       </div>
+142:     </section>
+143:   </div>
+144: </template>
+145: 
+146: <style scoped>
+147: .home {
+148:   max-width: var(--container-xl);
+149:   margin: 0 auto;
+150:   padding: 0 var(--space-lg);
+151: }
+152: 
+153: .hero {
+154:   display: flex;
+155:   flex-direction: column;
+156:   align-items: flex-start;
+157:   gap: var(--space-md);
+158:   padding: var(--space-4xl) 0 var(--space-3xl);
+159: }
+160: 
+161: .hero__title {
+162:   margin: 0;
+163:   color: var(--text-primary);
+164:   font-family: var(--font-display);
+165:   font-size: var(--text-5xl);
+166:   font-weight: 600;
+167:   letter-spacing: var(--tracking-tight);
+168:   line-height: var(--leading-tight);
+169: }
+170: 
+171: .hero__tagline {
+172:   max-width: var(--measure-narrow);
+173:   margin: 0;
+174:   color: var(--text-secondary);
+175:   font-size: var(--text-lg);
+176:   line-height: var(--leading-relaxed);
+177: }
+178: 
+179: .hero__id {
+180:   display: flex;
+181:   align-items: center;
+182:   gap: var(--space-md);
+183: }
+184: 
+185: .hero__id-text {
+186:   display: flex;
+187:   flex-direction: column;
+188:   gap: var(--space-2xs);
+189:   min-width: 0;
+190: }
+191: 
+192: .hero__id-text .eyebrow {
+193:   margin: 0;
+194: }
+195: 
+196: .hero__author {
+197:   margin: 0;
+198:   color: var(--text-primary);
+199:   font-family: var(--font-display);
+200:   font-size: var(--text-xl);
+201:   letter-spacing: var(--tracking-tight);
+202:   line-height: var(--leading-snug);
+203: }
+204: 
+205: .hero__status {
+206:   display: flex;
+207:   align-items: center;
+208:   gap: var(--space-xs);
+209:   min-height: 1.5em;
+210:   margin: 0;
+211:   color: var(--text-muted);
+212:   font-family: var(--font-mono);
+213:   font-size: var(--text-sm);
+214: }
+215: 
+216: .hero__prompt {
+217:   color: var(--accent);
+218: }
+219: 
+220: .hero__caret {
+221:   display: inline-block;
+222:   width: 8px;
+223:   height: 1.05em;
+224:   background: var(--accent);
+225:   opacity: 0.85;
+226:   animation: hero-caret 1.05s steps(1, end) infinite;
+227: }
+228: 
+229: @keyframes hero-caret {
+230:   0%,
+231:   49% {
+232:     opacity: 0.85;
+233:   }
+234: 
+235:   50%,
+236:   100% {
+237:     opacity: 0;
+238:   }
+239: }
+240: 
+241: .hero__actions {
+242:   display: flex;
+243:   flex-wrap: wrap;
+244:   gap: var(--space-sm);
+245:   margin-top: var(--space-sm);
+246: }
+247: 
+248: .hero__stats {
+249:   display: flex;
+250:   gap: var(--space-3xl);
+251:   margin: var(--space-xl) 0 0;
+252: }
+253: 
+254: .hero__stat {
+255:   display: flex;
+256:   flex-direction: column;
+257:   gap: var(--space-2xs);
+258: }
+259: 
+260: .hero__stat dt {
+261:   color: var(--text-muted);
+262:   font-size: var(--text-2xs);
+263:   letter-spacing: var(--tracking-caps);
+264:   text-transform: uppercase;
+265: }
+266: 
+267: .hero__stat dd {
+268:   margin: 0;
+269:   color: var(--text-primary);
+270:   font-family: var(--font-display);
+271:   font-size: var(--text-3xl);
+272:   font-variant-numeric: tabular-nums;
+273: }
+274: 
+275: .section {
+276:   margin-top: var(--space-3xl);
+277: }
+278: 
+279: .section__head {
+280:   display: flex;
+281:   align-items: baseline;
+282:   justify-content: space-between;
+283:   gap: var(--space-md);
+284:   margin-bottom: var(--space-lg);
+285:   padding-bottom: var(--space-sm);
+286:   border-bottom: 1px solid var(--border-subtle);
+287: }
+288: 
+289: .section__title {
+290:   margin: 0;
+291:   color: var(--text-primary);
+292:   font-family: var(--font-display);
+293:   font-size: var(--text-2xl);
+294: }
+295: 
+296: .section__more {
+297:   color: var(--accent);
+298:   font-size: var(--text-sm);
+299:   text-decoration: none;
+300: }
+301: 
+302: .section__more:hover {
+303:   text-decoration: underline;
+304: }
+305: 
+306: /* Asymmetric bento: the lead item spans both columns and both rows. */
+307: .bento {
+308:   display: grid;
+309:   grid-template-columns: repeat(2, minmax(0, 1fr));
+310:   gap: var(--space-lg);
+311: }
+312: 
+313: .bento__lead {
+314:   grid-column: 1 / -1;
+315: }
+316: 
+317: .skeleton-grid {
+318:   display: grid;
+319:   grid-template-columns: repeat(3, minmax(0, 1fr));
+320:   gap: var(--space-lg);
+321: }
+322: 
+323: .skeleton {
+324:   height: 220px;
+325:   border-radius: var(--radius-lg);
+326:   background: linear-gradient(
+327:     90deg,
+328:     var(--bg-subtle) 25%,
+329:     var(--bg-hover) 37%,
+330:     var(--bg-subtle) 63%
+331:   );
+332:   background-size: 400% 100%;
+333:   animation: skeleton 1.4s ease-in-out infinite;
+334: }
+335: 
+336: @keyframes skeleton {
+337:   from {
+338:     background-position: 100% 50%;
+339:   }
+340:   to {
+341:     background-position: 0 50%;
+342:   }
+343: }
+344: 
+345: .tag-cloud {
+346:   display: flex;
+347:   flex-wrap: wrap;
+348:   gap: var(--space-sm);
+349: }
+350: 
+351: @media (prefers-reduced-motion: reduce) {
+352:   .skeleton {
+353:     animation: none;
+354:   }
+355: 
+356:   .hero__caret {
+357:     animation: none;
+358:   }
+359: }
+360: 
+361: @media (max-width: 900px) {
+362:   .bento {
+363:     grid-template-columns: minmax(0, 1fr);
+364:   }
+365: 
+366:   .skeleton-grid {
+367:     grid-template-columns: minmax(0, 1fr);
+368:   }
+369: 
+370:   .hero {
+371:     padding-top: var(--space-2xl);
+372:   }
+373: 
+374:   .hero__stats {
+375:     gap: var(--space-xl);
+376:   }
+377: }
+378: </style>
+
+(End of file - total 378 lines)
+</content>

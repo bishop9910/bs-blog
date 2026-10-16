@@ -42,6 +42,7 @@ func (d Duration) Std() time.Duration { return time.Duration(d) }
 type Config struct {
 	Server ServerConfig `yaml:"server"`
 	Data   DataConfig   `yaml:"data"`
+	Music  MusicConfig  `yaml:"music"`
 	Auth   AuthConfig   `yaml:"auth"`
 	CORS   CORSConfig   `yaml:"cors"`
 	Log    LogConfig    `yaml:"log"`
@@ -79,6 +80,26 @@ type DataConfig struct {
 	// UploadURL is the public prefix those files are served under.
 	UploadURL string `yaml:"uploadUrl"`
 	// MaxUploadBytes caps a single image upload.
+	MaxUploadBytes int64 `yaml:"maxUploadBytes"`
+}
+
+// MusicConfig points at the on-disk music library.
+//
+// The library is the directory: no track is ever written to SQLite, so moving or
+// syncing the folder is all it takes to change what the site plays.
+type MusicConfig struct {
+	// Dir is the directory scanned for audio files, recursively. Empty disables
+	// the library: the routes stay registered and answer with an empty listing,
+	// which is friendlier than a 404 on a page that is part of the site.
+	Dir string `yaml:"dir"`
+	// Extensions are the file extensions indexed, without the leading dot. An
+	// empty list falls back to the formats the audio package can read.
+	Extensions []string `yaml:"extensions"`
+	// Watch rescans a couple of seconds after the directory changes, so dropping
+	// files in by hand shows up without pressing rescan.
+	Watch bool `yaml:"watch"`
+	// MaxUploadBytes caps a single audio upload. Must stay below
+	// server.maxBodyBytes, which is the ceiling that actually reaches the socket.
 	MaxUploadBytes int64 `yaml:"maxUploadBytes"`
 }
 
@@ -121,13 +142,19 @@ func Default() *Config {
 			ReadTimeout:  Duration(60 * time.Second),
 			WriteTimeout: Duration(120 * time.Second),
 			IdleTimeout:  Duration(120 * time.Second),
-			MaxBodyBytes: 12 << 20,
+			MaxBodyBytes: 32 << 20,
 		},
 		Data: DataConfig{
 			Database:       "data/blog.db",
 			UploadDir:      "data/uploads",
 			UploadURL:      "/uploads",
 			MaxUploadBytes: 10 << 20,
+		},
+		Music: MusicConfig{
+			Dir:            "data/music",
+			Extensions:     []string{"mp3", "flac", "m4a", "m4b", "ogg", "opus", "wav"},
+			Watch:          true,
+			MaxUploadBytes: 32 << 20,
 		},
 		Auth: AuthConfig{
 			SecretFile: "data/jwt.secret",
@@ -182,6 +209,22 @@ func (c *Config) Validate() error {
 	}
 	if c.Server.MaxBodyBytes <= 0 {
 		return fmt.Errorf("conf: server.maxBodyBytes must be positive")
+	}
+	// An empty music.dir is a supported state — the library is simply disabled —
+	// so the rest of the block is only meaningful once a directory is named.
+	if c.Music.Dir != "" {
+		if c.Music.MaxUploadBytes <= 0 {
+			return fmt.Errorf("conf: music.maxUploadBytes must be positive")
+		}
+		if c.Server.MaxBodyBytes < c.Music.MaxUploadBytes {
+			// The body filter rejects the request before the upload handler can
+			// explain itself, so a ceiling larger than the filter would only ever
+			// produce "request too large" from an unrelated layer.
+			return fmt.Errorf(
+				"conf: music.maxUploadBytes (%d) must not exceed server.maxBodyBytes (%d)",
+				c.Music.MaxUploadBytes, c.Server.MaxBodyBytes,
+			)
+		}
 	}
 	return nil
 }
