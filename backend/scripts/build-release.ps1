@@ -164,6 +164,9 @@ if ($code -ne 0) { Write-Output "FAIL: go build exit=$code"; exit 1 }
 Write-Output '=== assembling the release folder ==='
 New-Item -ItemType Directory -Force -Path (Join-Path $release 'configs') | Out-Null
 New-Item -ItemType Directory -Force -Path (Join-Path $release 'data\uploads') | Out-Null
+# The resources page writes here, and the directory has to exist before the
+# first upload only for tidiness: the upload creates it when missing.
+New-Item -ItemType Directory -Force -Path (Join-Path $release 'data\resources') | Out-Null
 Copy-Item (Join-Path $be 'configs\config.yaml') (Join-Path $release 'configs\config.yaml') -Force
 
 $cfg = Get-Content (Join-Path $release 'configs\config.yaml') -Raw

@@ -192,6 +192,41 @@ type PaginatedMedia struct {
 	PageSize int        `json:"pageSize"`
 }
 
+// ResourceDTO is one downloadable file on the resources page.
+//
+// There is no downloadUrl here: the bytes are served from
+// GET /resources/{id}/download, and the frontend builds that URL from API_BASE.
+// Duplicating the prefix on the wire would mean two places could disagree about
+// where the API is mounted.
+type ResourceDTO struct {
+	ID            int64  `json:"id"`
+	Title         string `json:"title"`
+	Description   string `json:"description"`
+	CoverURL      string `json:"coverUrl"`
+	Filename      string `json:"filename"`
+	Extension     string `json:"extension"`
+	Size          int64  `json:"size"`
+	DownloadCount int64  `json:"downloadCount"`
+	Visible       bool   `json:"visible"`
+	CreatedAt     string `json:"createdAt"`
+	UpdatedAt     string `json:"updatedAt"`
+}
+
+// PaginatedResources is one page of the resources page.
+type PaginatedResources struct {
+	Items    []ResourceDTO `json:"items"`
+	Total    int64         `json:"total"`
+	Page     int           `json:"page"`
+	PageSize int           `json:"pageSize"`
+}
+
+// ResourceLimitsDTO is the download policy: how large one file may be and which
+// suffixes are accepted.
+type ResourceLimitsDTO struct {
+	MaxUploadBytes    int64    `json:"maxUploadBytes"`
+	AllowedExtensions []string `json:"allowedExtensions"`
+}
+
 // SlugCheckDTO answers the editor's slug field.
 type SlugCheckDTO struct {
 	Slug      string `json:"slug"`
@@ -226,6 +261,21 @@ type Query struct {
 	Keyword  string
 	Sort     string
 	Order    string
+}
+
+// ResourceInput is the metadata of an upload or an edit. The bytes are not part
+// of it: an upload is multipart, and the handler reads the file on its own.
+//
+// Every field is a pointer because an absent key and an empty string mean
+// different things. On an edit, omitting the title keeps the current one; on an
+// upload, a nil title means "derive it from the filename". A plain string would
+// collapse both into "", and a form that only toggles visibility would be
+// rejected for lacking a title it never meant to touch.
+type ResourceInput struct {
+	Title       *string `json:"title"`
+	Description *string `json:"description"`
+	CoverURL    *string `json:"coverUrl"`
+	Visible     *bool   `json:"visible"`
 }
 
 // SiteInput is the body of a site-profile update.
@@ -351,5 +401,21 @@ func toMediaDTO(asset model.MediaAsset) MediaDTO {
 		Width:     asset.Width,
 		Height:    asset.Height,
 		CreatedAt: rfc3339(asset.CreatedAt),
+	}
+}
+
+func toResourceDTO(file model.ResourceFile) ResourceDTO {
+	return ResourceDTO{
+		ID:            file.ID,
+		Title:         file.Title,
+		Description:   file.Description,
+		CoverURL:      file.CoverURL,
+		Filename:      file.Filename,
+		Extension:     file.Extension,
+		Size:          file.Size,
+		DownloadCount: file.DownloadCount,
+		Visible:       file.Visible,
+		CreatedAt:     rfc3339(file.CreatedAt),
+		UpdatedAt:     rfc3339(file.UpdatedAt),
 	}
 }

@@ -20,6 +20,15 @@ const FALLBACK: Limits = {
     maxCoverBytes: 5 * 1024 * 1024,
     maxLyricsBytes: 1024 * 1024,
   },
+  resources: {
+    maxUploadBytes: 32 * 1024 * 1024,
+    allowedExtensions: [
+      '7z', 'apk', 'bz2', 'c', 'cpp', 'cs', 'csv', 'deb', 'dmg', 'doc', 'docx', 'exe',
+      'go', 'gz', 'h', 'jar', 'java', 'js', 'json', 'md', 'msi', 'nupkg', 'pdf', 'php',
+      'ppt', 'pptx', 'ps1', 'py', 'rar', 'rb', 'rpm', 'rs', 'sh', 'sql', 'tar', 'tgz',
+      'ts', 'txt', 'whl', 'xls', 'xlsx', 'xz', 'yaml', 'yml', 'zip', 'zst',
+    ],
+  },
   site: {
     maxSocials: 12,
     maxWallpapers: 24,

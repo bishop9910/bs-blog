@@ -183,7 +183,7 @@ chmod +x "$RELEASE_DIR/$BIN_NAME"
 # release/data is never cleared or written to. A live blog database is the one
 # thing here that cannot be rebuilt, and clobbering it is far worse than
 # starting from an empty directory.
-mkdir -p "$RELEASE_DIR/configs" "$RELEASE_DIR/data/uploads"
+mkdir -p "$RELEASE_DIR/configs" "$RELEASE_DIR/data/uploads" "$RELEASE_DIR/data/resources"
 cp -f "$BE_DIR/configs/config.yaml" "$RELEASE_DIR/configs/config.yaml"
 
 CFG="$RELEASE_DIR/configs/config.yaml"

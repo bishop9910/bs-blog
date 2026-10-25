@@ -43,6 +43,7 @@ const NAV = [
   { name: 'archive', label: '归档' },
   { name: 'tags', label: '标签' },
   { name: 'calendar', label: '日历' },
+  { name: 'resources', label: '资源' },
   { name: 'about', label: '关于' },
 ] as const
 

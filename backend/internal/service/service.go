@@ -32,11 +32,12 @@ const APIPrefix = "/api/v1"
 
 // Handler holds the use cases the routes delegate to.
 type Handler struct {
-	auth  *biz.AuthUsecase
-	posts *biz.PostUsecase
-	media *biz.MediaUsecase
-	site  *biz.SiteUsecase
-	music *biz.MusicUsecase
+	auth      *biz.AuthUsecase
+	posts     *biz.PostUsecase
+	media     *biz.MediaUsecase
+	site      *biz.SiteUsecase
+	music     *biz.MusicUsecase
+	resources *biz.ResourceUsecase
 
 	maxBody        int64
 	corsEnabled    bool
@@ -52,6 +53,7 @@ func NewHandler(
 	media *biz.MediaUsecase,
 	site *biz.SiteUsecase,
 	music *biz.MusicUsecase,
+	resources *biz.ResourceUsecase,
 	cfg *conf.Config,
 	logger log.Logger,
 ) *Handler {
@@ -75,6 +77,7 @@ func NewHandler(
 		media:          media,
 		site:           site,
 		music:          music,
+		resources:      resources,
 		maxBody:        cfg.Server.MaxBodyBytes,
 		corsEnabled:    cfg.CORS.Enabled,
 		allowAnyOrigin: allowAny,
@@ -107,6 +110,12 @@ func (h *Handler) Register(srv *khttp.Server) {
 	h.route(r, http.MethodGet, "/tags", h.listTags)
 	h.route(r, http.MethodGet, "/site", h.getSite)
 
+	// Public downloads. No session: a link handed to a reader has to work as a
+	// plain browser download, and the owner already chose to publish the file.
+	h.route(r, http.MethodGet, "/resources", h.listPublicResources)
+	h.route(r, http.MethodGet, "/resources/{id}/download", h.downloadResource)
+	h.route(r, http.MethodHead, "/resources/{id}/download", h.downloadResource)
+
 	// Session. Only the two routes that return or change owner data are
 	// guarded; login and setup must be reachable while signed out.
 	h.route(r, http.MethodPost, "/auth/login", h.login)
@@ -130,6 +139,12 @@ func (h *Handler) Register(srv *khttp.Server) {
 	h.route(r, http.MethodGet, "/admin/media", h.authed(h.listMedia))
 	h.route(r, http.MethodPost, "/admin/media", h.authed(h.uploadMedia))
 	h.route(r, http.MethodDelete, "/admin/media/{id}", h.authed(h.deleteMedia))
+
+	// Admin: the resources page's downloadable files.
+	h.route(r, http.MethodGet, "/admin/resources", h.authed(h.listResources))
+	h.route(r, http.MethodPost, "/admin/resources", h.authed(h.uploadResource))
+	h.route(r, http.MethodPut, "/admin/resources/{id}", h.authed(h.updateResource))
+	h.route(r, http.MethodDelete, "/admin/resources/{id}", h.authed(h.deleteResource))
 
 	// Public music library. Listening needs no session: the audio routes carry
 	// no token, which is what lets an <audio> element and the Web Audio API read

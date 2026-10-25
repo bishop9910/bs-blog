@@ -44,6 +44,24 @@ data:
   # Per-image ceiling. Must stay below server.maxBodyBytes.
   maxUploadBytes: 10485760
 
+resources:
+  # Where downloadable files are written. The bytes are never served statically:
+  # they leave only through GET /api/v1/resources/{id}/download, as an
+  # attachment. Keep this separate from data.uploadDir -- an uploaded image is
+  # meant to be rendered inline, a resource is meant to be saved to disk, and
+  # mixing the two would mean one directory whose files are served both ways.
+  dir: "data/resources"
+  # Extensions accepted, without the leading dot, case-insensitive. Empty keeps
+  # the built-in list (archives, installers, documents, source files) and is the
+  # recommended setting; list values here only to narrow it. HTML and SVG are
+  # deliberately not in the built-in list: they are the two formats a browser
+  # would execute if a download were ever rendered inline.
+  extensions: []
+  # Per-file ceiling, 32 MiB, mirroring server.maxBodyBytes: the body filter runs
+  # first, so a larger value here could never be reached. Raise both together if
+  # a project archive gets bigger than this.
+  maxUploadBytes: 33554432
+
 site:
   # How many wallpapers the site may keep. The public page picks one at random
   # per visit. 0 is a real setting rather than a missing one: it turns the

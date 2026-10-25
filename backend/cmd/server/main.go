@@ -95,6 +95,12 @@ func run(confPath string) error {
 			}, helper),
 			musicLimits,
 		),
+		biz.NewResourceUsecase(
+			store,
+			cfg.Resources.Dir,
+			cfg.Resources.MaxUploadBytes,
+			cfg.Resources.Extensions,
+		),
 		cfg,
 		logger,
 	)

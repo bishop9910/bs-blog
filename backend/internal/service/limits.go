@@ -16,15 +16,17 @@ import (
 // form learns what those caps are. It is a GET on the admin surface because the
 // policy of a private deployment is not public information.
 type LimitsDTO struct {
-	Media biz.MediaLimitsDTO `json:"media"`
-	Music biz.MusicLimitsDTO `json:"music"`
-	Site  biz.SiteLimitsDTO  `json:"site"`
+	Media     biz.MediaLimitsDTO    `json:"media"`
+	Music     biz.MusicLimitsDTO    `json:"music"`
+	Site      biz.SiteLimitsDTO     `json:"site"`
+	Resources biz.ResourceLimitsDTO `json:"resources"`
 }
 
 func (h *Handler) getLimits(ctx khttp.Context, _ *biz.CurrentUser) error {
 	return ctx.JSON(http.StatusOK, LimitsDTO{
-		Media: h.media.Limits(),
-		Music: h.music.Limits(),
-		Site:  h.site.Limits(),
+		Media:     h.media.Limits(),
+		Music:     h.music.Limits(),
+		Site:      h.site.Limits(),
+		Resources: h.resources.Limits(),
 	})
 }

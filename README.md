@@ -56,7 +56,9 @@ bash backend/scripts/build-release.sh
 release/
 ├── bs-blog.exe        前端已内嵌，单个文件即可运行（Linux 上叫 bs-blog）
 ├── configs/config.yaml
-└── data/uploads/      图片上传目录
+└── data/
+    ├── uploads/       图片上传目录
+    └── resources/     资源文件目录（资源页的下载文件）
 ```
 
 整个目录拷到别的机器就能跑——**不需要 Node，也不需要 dist 目录**，在 `release/` 下执行 `.\bs-blog.exe`（Linux 上是 `./bs-blog`），浏览器开 <http://127.0.0.1:8080>。
@@ -172,6 +174,7 @@ cd backend && go run ./cmd/dbdump ../data/blog.db
 - 文章列表：分页、按标签筛选、关键字搜索（筛选状态写进 URL，可分享可后退）
 - 文章详情：跟着正文走的阅读进度条、右侧吸顶目录（窄屏折叠成一张可展开的卡片）、回到顶部、代码高亮、上一篇/下一篇、copy link
 - 归档：按年/月分组，年份栏吸顶
+- 资源：把写好的项目（zip、安装包、源码、文档）挂在站上给人下载，支持关键字搜索与分页统计
 - 标签、关于、404（打字机动画）
 - 壁纸：后台配好一组之后，**每次打开站点随机挑一张**，电影感的淡入 + 缓慢推镜 + 跟随鼠标与滚动的视差；配了多张时每 45 秒自动交叉淡入换下一张（页面切到后台就停下）；没有配壁纸时保持原来的极光背景
 - 音乐：侧边可展开/收起的播放器，左边封面、中间歌词、进度条上方是**正在播放的声音**实时频谱，支持上一首/下一首/顺序/单曲/随机/播放列表，空格键播放暂停，系统媒体键（MediaSession）与手机锁屏也能控制
@@ -185,6 +188,7 @@ cd backend && go run ./cmd/dbdump ../data/blog.db
 - 草稿 / 发布：新文章**永远是草稿**，发布是一个单独的动作，半成品不可能误上线
 - slug：从标题自动派生（中文标题也能生成可读 slug），手动改过之后就不再自动覆盖，实时检测占用
 - 媒体库、站点信息（标题/介绍/社交链接）、修改密码
+- 资源库：拖一个文件进去就生成一条资源，可改标题/简介/封面、切换公开或隐藏、复制下载地址、删除
 
 **密码锁**
 
@@ -204,6 +208,16 @@ cd backend && go run ./cmd/dbdump ../data/blog.db
 - 播放走 `GET /api/v1/music/stream/{id}`（支持 Range，拖进度条不会重下整首），封面走 `/api/v1/music/cover/{id}` 并缓存一天
 
 前端是**同源**取音频的，所以 `AnalyserNode` 能直接读正在播放的声音——进度条上方那排频谱不是随机数，是当前这首歌的实时频率。
+
+**资源库**
+
+资源库解决的是「我想把自己写好的项目发到博客上」这件事：后台传上去一个文件，公开的「资源」页就多一条可下载的条目。
+
+- 文件存在 `resources.dir`（默认 `backend/data/resources`），按 `年/月` 分目录，落盘名是随机 UUID + 原始扩展名。**原始文件名只存在于数据库**，同时作为下载时的 `Content-Disposition` 文件名，所以中文名、空格、括号都不会在磁盘上引发任何问题
+- 读资源**只有一条路**：`GET /api/v1/resources/{id}/download`，响应固定 `Content-Disposition: attachment` + `application/octet-stream` + `X-Content-Type-Options: nosniff`。这个目录**没有**挂静态文件服务，也不在 `/uploads` 下——图片是拿来内联渲染的，资源是拿来存盘的，两者混在一个目录里迟早会有一条被错误地当成 HTML 渲染出去
+- 扩展名是**白名单**：压缩包、安装包、文档、源码脚本（46 种）。HTML 和 SVG 故意不在名单里，它们是浏览器唯一会当作页面执行的两个格式，想要就打包成 zip
+- 每次下载会累加 `downloadCount`（`HEAD` 预检不计）；浏览页只列 `visible` 的条目，隐藏只是在公开页不出现，链接本身也不再生效
+- 上传与删除要求会话；列表与下载公开。前端所有大小/格式上限来自 `GET /admin/limits` 的 `resources` 字段，页面不硬编码常量
 
 ---
 
@@ -252,6 +266,7 @@ cd backend && go run ./cmd/dbdump ../data/blog.db
 │   ├── cmd/server/          入口
 │   ├── configs/config.yaml  配置（全部带注释）
 │   ├── data/music/          音乐库（运行时创建，已 gitignore）：丢音频进来即可
+│   ├── data/resources/      资源文件目录（运行时创建，已 gitignore）：只有下载接口读得到
 │   ├── scripts/             端到端测试脚本 + 打包脚本
 │   ├── tools/icongen/       图标兜底生成器：icon.ico 缺失时才用 Go 代码画一个（纯标准库）
 │   ├── winres/              Windows 资源：versioninfo.json 与 icon.ico，都是手改的源文件
@@ -278,6 +293,7 @@ cd backend && go run ./cmd/dbdump ../data/blog.db
 - 文章正文不含 `data:` URI，图片必须走上传流程
 - 单个请求体、上传体积都有上限；上传目录关闭目录列表
 - 音频上传做**扩展名白名单 + MIME 嗅探**双校验，落盘名是随机 UUID，原始文件名不会碰到文件系统
+- 资源文件同理：扩展名白名单（排除 HTML/SVG）、写盘用 `O_EXCL` + 随机 UUID，下载时强制 `attachment` 与 `nosniff`，目录也不提供静态服务——文件名与内容类型都不由上传者决定
 - 音乐 sidecar（`.json` / `.lrc` / 封面）里的路径必须落在音乐目录内部，`../` 之类的越界引用会被拒绝，不会被当成「读我这个博客服务器上的任意文件」
 - 壁纸只允许站点相对路径或 http(s) 绝对地址；`javascript:`、`data:`、`//host` 都会被丢掉（前端再按同一套白名单校验一次）
 - 静态文件回退使用 `path.Clean("/" + path)`，`..` 无法逃出根目录
@@ -304,11 +320,14 @@ cd backend && go run ./cmd/dbdump ../data/blog.db
 | `music.maxUploadBytes` | `33554432` | 单个音频上传上限，**必须 ≤ `server.maxBodyBytes`**，否则启动时直接报配置错误 |
 | `music.maxCoverBytes` | `5242880` | 从 sidecar 读入的最大封面（5 MiB），读取前先按文件大小判断 |
 | `music.maxLyricsBytes` | `1048576` | 最大 `.lrc` 文件（1 MiB），防止 sidecar 指错路径把大文件读进内存 |
+| `resources.dir` | `data/resources` | 资源文件目录，**不能留空**（启动时校验）。文件只经下载接口出去，不提供静态访问 |
+| `resources.extensions` | 空 = 内置 46 种 | 允许上传的扩展名（不带点、忽略大小写）。留空用内置列表；填了就**只**允许填的这些，可用来收紧 |
+| `resources.maxUploadBytes` | `33554432` | 单个资源文件上限，**必须 ≤ `server.maxBodyBytes`**，否则启动时直接报配置错误 |
 | `server.maxBodyBytes` | `33554432` | 请求体总上限；想传更大的无损音频，这两个键要一起调大 |
 | `auth.tokenTtl` | `168h` | 登录有效期 |
 | `log.level` | `info` | 改成 `debug` 会同时打印 SQL |
 
-上表里的限制都是**服务端真实生效的值**：后台表单不硬编码任何数字，而是启动时读一次 `GET /admin/limits`（`{ media, music, site }`），用它决定文件选择器的 `accept`、输入框的 `maxlength`、上传前的大小预检和页面上的提示文案。改 `config.yaml` 重启后，前端文案跟着变。唯一不能配的是图片 MIME 白名单：它是消毒边界，允许加 SVG 等于把上传文件变成同源 XSS。
+上表里的限制都是**服务端真实生效的值**：后台表单不硬编码任何数字，而是启动时读一次 `GET /admin/limits`（`{ media, music, resources, site }`），用它决定文件选择器的 `accept`、输入框的 `maxlength`、上传前的大小预检和页面上的提示文案。改 `config.yaml` 重启后，前端文案跟着变。唯一不能配的是图片 MIME 白名单：它是消毒边界，允许加 SVG 等于把上传文件变成同源 XSS。
 
 ---
 
@@ -317,6 +336,7 @@ cd backend && go run ./cmd/dbdump ../data/blog.db
 - 前后端的数据契约以 `src/types/blog.ts` 为准，后端 `internal/biz/dto.go` 逐字段镜像它
 - 后端路由是**手写**的，没有引入 protobuf 代码生成。受保护的路由通过 `h.authed(...)` 包装，鉴权在类型层面无法被静默漏掉
 - 音乐路由和 `/uploads` 一样是**公开只读**的（听歌不该先登录），写操作（上传/删除/重扫）才要求会话
+- 资源同样公开只读（`/resources`、`/resources/{id}/download`），上传/编辑/删除要会话。资源**不是**静态目录：它的目录永远不挂静态文件服务，下载必须经过 `ServeContent` 才能带上 `attachment` 头
 - 壁纸存在 `site_profile.wallpapers` 里，是一段 JSON 文本；只接受站点相对路径或 http(s) 绝对地址，最多 `site.maxWallpapers` 张、同址去重，空数组即清空。前端按**每次整页加载**随机挑一张，客户端路由切换不会重抽
 - 上传与字段限制只在 `config.yaml` 和 `internal/biz` 里定义一次：能部署时调整的（图片/音频大小、封面、歌词、壁纸数量）放 YAML，和数据库列宽绑定的文本上限放 `biz/site.go`，两者都通过 `GET /admin/limits` 回报给前端，页面不复制任何常量
 - JS 动效一律走 `src/utils/anime.ts`，业务代码不直接 `import 'animejs'`；被动画的元素**不得**由 CSS 预设隐藏，`prefers-reduced-motion` 下页面必须原样可读

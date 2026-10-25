@@ -4,6 +4,7 @@ import {
   PhArrowSquareOut,
   PhArticle,
   PhGear,
+  PhFolderSimple,
   PhImages,
   PhMusicNotes,
   PhPlus,
@@ -36,6 +37,11 @@ const menuOptions = computed<MenuOption[]>(() => [
     label: '音乐',
     key: 'admin-music',
     icon: () => h(PhMusicNotes, { size: 18 }),
+  },
+  {
+    label: '资源',
+    key: 'admin-resources',
+    icon: () => h(PhFolderSimple, { size: 18 }),
   },
   {
     label: '站点设置',

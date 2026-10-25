@@ -74,10 +74,16 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '日历', order: 6 },
       },
       {
+        path: 'resources',
+        name: 'resources',
+        component: () => import('@/views/ResourcesView.vue'),
+        meta: { title: '资源', order: 7 },
+      },
+      {
         path: 'about',
         name: 'about',
         component: () => import('@/views/AboutView.vue'),
-        meta: { title: '关于', order: 7 },
+        meta: { title: '关于', order: 8 },
       },
     ],
   },
@@ -122,6 +128,12 @@ const routes: RouteRecordRaw[] = [
         name: 'admin-music',
         component: () => import('@/views/admin/MusicView.vue'),
         meta: { requiresAuth: true, admin: true, title: '音乐库' },
+      },
+      {
+        path: 'resources',
+        name: 'admin-resources',
+        component: () => import('@/views/admin/ResourceView.vue'),
+        meta: { requiresAuth: true, admin: true, title: '资源库' },
       },
       {
         path: 'settings',

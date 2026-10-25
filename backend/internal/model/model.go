@@ -111,6 +111,44 @@ type MediaAsset struct {
 // TableName keeps the entity name out of the table name.
 func (MediaAsset) TableName() string { return "media_assets" }
 
+// ResourceFile is one downloadable file published on the resources page.
+//
+// The bytes live on disk, never in SQLite: a project archive is tens of
+// megabytes, and the database is the one file that has to stay small enough to
+// copy around. The row keeps only what the listing shows plus enough to find
+// the file again.
+type ResourceFile struct {
+	ID int64 `gorm:"primaryKey"`
+	// Title is what the public card shows.
+	Title string `gorm:"size:160;not null"`
+	// Description is the optional blurb under the title.
+	Description string `gorm:"type:text;not null;default:''"`
+	// CoverURL is optional; it points at the media library or an absolute URL.
+	CoverURL string `gorm:"size:512;not null;default:''"`
+	// Filename is the name the upload had. It is what the visitor's browser
+	// saves the file as, so it is kept verbatim.
+	Filename string `gorm:"size:255;not null"`
+	// StoredName is the path relative to the resource directory:
+	// 2026/10/<uuid>.zip. The UUID is the reason two uploads with the same name
+	// can coexist, and the fixed shape is the reason a download cannot be
+	// pointed at /etc/passwd by a crafted request.
+	StoredName string `gorm:"size:255;not null"`
+	// Extension is the lower-case, dotless suffix the allow-list matched.
+	Extension string `gorm:"size:32;not null;default:''"`
+	Size      int64  `gorm:"not null;default:0"`
+	// DownloadCount is incremented on every successful GET. It is a vanity
+	// number, so a lost increment under concurrency is acceptable.
+	DownloadCount int64 `gorm:"not null;default:0"`
+	// Visible takes a file off the public page without deleting it.
+	Visible bool `gorm:"not null;default:true;index"`
+
+	CreatedAt time.Time `gorm:"index"`
+	UpdatedAt time.Time
+}
+
+// TableName keeps the entity name out of the table name.
+func (ResourceFile) TableName() string { return "resource_files" }
+
 // SiteProfile is the single row of site-wide metadata (id = 1).
 type SiteProfile struct {
 	ID          int64  `gorm:"primaryKey"`
@@ -141,6 +179,7 @@ func All() []any {
 		&Post{},
 		&Tag{},
 		&MediaAsset{},
+		&ResourceFile{},
 		&SiteProfile{},
 	}
 }

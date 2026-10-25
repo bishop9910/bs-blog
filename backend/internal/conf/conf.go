@@ -44,9 +44,15 @@ type Config struct {
 	Data   DataConfig   `yaml:"data"`
 	Site   SiteConfig   `yaml:"site"`
 	Music  MusicConfig  `yaml:"music"`
-	Auth   AuthConfig   `yaml:"auth"`
-	CORS   CORSConfig   `yaml:"cors"`
-	Log    LogConfig    `yaml:"log"`
+	// Resources is the download library on the resources page. It is a separate
+	// directory from data.uploadDir on purpose: images are served inline by the
+	// static handler, while these files are only ever handed out as an
+	// attachment through the API, so the two must not share a directory or a
+	// path could be served the wrong way.
+	Resources ResourceConfig `yaml:"resources"`
+	Auth      AuthConfig     `yaml:"auth"`
+	CORS      CORSConfig     `yaml:"cors"`
+	Log       LogConfig      `yaml:"log"`
 }
 
 // ServerConfig covers the HTTP listener.
@@ -125,6 +131,25 @@ type MusicConfig struct {
 	MaxLyricsBytes int64 `yaml:"maxLyricsBytes"`
 }
 
+// ResourceConfig points at the on-disk collection of downloadable files.
+//
+// Unlike the music library, the directory is required: the resources page is
+// the point of the feature, and a silently empty page would look like the
+// upload failed. Files are always streamed back through the API as an
+// attachment, never served from a static prefix, which is why there is no
+// uploadUrl counterpart here.
+type ResourceConfig struct {
+	// Dir is where uploaded files are written.
+	Dir string `yaml:"dir"`
+	// Extensions are the file suffixes accepted, without the leading dot and
+	// case-insensitively. An empty list falls back to the set internal/biz
+	// accepts, so the allow-list has one authoritative definition in code.
+	Extensions []string `yaml:"extensions"`
+	// MaxUploadBytes caps one file. Must not exceed server.maxBodyBytes, which
+	// is the ceiling the request body filter enforces before any handler runs.
+	MaxUploadBytes int64 `yaml:"maxUploadBytes"`
+}
+
 // AuthConfig configures the password lock.
 type AuthConfig struct {
 	// Secret is the JWT signing key. Left empty, a random secret is generated
@@ -183,6 +208,12 @@ func Default() *Config {
 			MaxUploadBytes: 32 << 20,
 			MaxCoverBytes:  5 << 20,
 			MaxLyricsBytes: 1 << 20,
+		},
+		Resources: ResourceConfig{
+			Dir: "data/resources",
+			// Mirrors server.maxBodyBytes above: the body filter would reject a
+			// larger upload before the handler could explain itself.
+			MaxUploadBytes: 32 << 20,
 		},
 		Auth: AuthConfig{
 			SecretFile: "data/jwt.secret",
@@ -257,6 +288,20 @@ func (c *Config) Validate() error {
 	// has to make sense while the pool is actually allowed to hold something.
 	if c.Site.MaxWallpapers > 0 && c.Site.MaxWallpaperLength <= 0 {
 		return fmt.Errorf("conf: site.maxWallpaperLength must be positive while wallpapers are enabled")
+	}
+	// The resources directory is required: without it every upload fails, and
+	// the failure would only surface after a multipart body had been read.
+	if c.Resources.Dir == "" {
+		return fmt.Errorf("conf: resources.dir must not be empty")
+	}
+	if c.Resources.MaxUploadBytes <= 0 {
+		return fmt.Errorf("conf: resources.maxUploadBytes must be positive")
+	}
+	if c.Resources.MaxUploadBytes > c.Server.MaxBodyBytes {
+		return fmt.Errorf(
+			"conf: resources.maxUploadBytes (%d) must not exceed server.maxBodyBytes (%d)",
+			c.Resources.MaxUploadBytes, c.Server.MaxBodyBytes,
+		)
 	}
 	// An empty music.dir is a supported state — the library is simply disabled —
 	// so the rest of the block is only meaningful once a directory is named.

@@ -143,6 +143,30 @@ function UploadMedia($filePath, $token, $expect) {
     return $r.Text | ConvertFrom-Json
 }
 
+# UploadResource posts one file plus an optional title as multipart. Kept ASCII:
+# the filename is ASCII here, and the CJK download filename is covered by the
+# resource block below via code points, not literals.
+function UploadResource($filePath, $token, $title, $expect) {
+    $boundary = '----bsblog' + [guid]::NewGuid().ToString('N')
+    $fileBytes = [System.IO.File]::ReadAllBytes($filePath)
+    $name = [System.IO.Path]::GetFileName($filePath)
+    $head = "--$boundary`r`nContent-Disposition: form-data; name=`"file`"; filename=`"$name`"`r`nContent-Type: application/octet-stream`r`n`r`n"
+    $mid = "`r`n--$boundary`r`nContent-Disposition: form-data; name=`"title`"`r`n`r`n$title"
+    $tail = "`r`n--$boundary--`r`n"
+    $hb = [System.Text.Encoding]::UTF8.GetBytes($head)
+    $mb = [System.Text.Encoding]::UTF8.GetBytes($mid)
+    $tb = [System.Text.Encoding]::UTF8.GetBytes($tail)
+    $buf = New-Object byte[] ($hb.Length + $fileBytes.Length + $mb.Length + $tb.Length)
+    [Array]::Copy($hb, 0, $buf, 0, $hb.Length)
+    [Array]::Copy($fileBytes, 0, $buf, $hb.Length, $fileBytes.Length)
+    [Array]::Copy($mb, 0, $buf, $hb.Length + $fileBytes.Length, $mb.Length)
+    [Array]::Copy($tb, 0, $buf, $hb.Length + $fileBytes.Length + $mb.Length, $tb.Length)
+    $r = RawHttp 'POST' "$base/admin/resources" $null $token $null $buf "multipart/form-data; boundary=$boundary"
+    if ($r.Status -ne $expect) { Fail "POST /admin/resources expected $expect got $($r.Status): $($r.Text)" }
+    Write-Output "ok  POST /admin/resources -> $($r.Status)"
+    return $r.Text | ConvertFrom-Json
+}
+
 Write-Output '=== public ==='
 $site = Call GET '/site' $null $null 200
 Write-Output "    site.title=$($site.title)"
@@ -275,6 +299,50 @@ Call DELETE "/admin/media/$($uploaded.id)" $null $token 204 | Out-Null
 $gone = RawHttp 'GET' "http://127.0.0.1:$Port$($uploaded.url)" $null $null $null $null $null
 if ($gone.Status -ne 404) { Fail "deleted asset still served: $($gone.Status)" }
 Write-Output '    deleted asset is no longer served'
+
+Write-Output '=== resources ==='
+$zip = Join-Path $run 'demo-project.zip'
+$zipBytes = New-Object byte[] 2048
+(New-Object Random 11).NextBytes($zipBytes)
+[IO.File]::WriteAllBytes($zip, $zipBytes)
+$resource = UploadResource $zip $token 'Smoke Project' 201
+if ($resource.extension -ne 'zip') { Fail "expected a zip resource, got '$($resource.extension)'" }
+if ($resource.title -ne 'Smoke Project') { Fail "title not stored: '$($resource.title)'" }
+
+$publicResources = Call GET '/resources' $null $null 200
+if ($publicResources.total -ne 1) { Fail "expected 1 public resource, got $($publicResources.total)" }
+
+# A HEAD probe must answer with the attachment headers but not count a download.
+$probe = RawHttp 'HEAD' "$base/resources/$($resource.id)/download" $null $null $null $null $null
+if ($probe.Status -ne 200) { Fail "HEAD download expected 200 got $($probe.Status)" }
+if ($probe.Headers['Content-Disposition'] -notlike 'attachment*') { Fail "download is not an attachment: $($probe.Headers['Content-Disposition'])" }
+if ($probe.Headers['X-Content-Type-Options'] -ne 'nosniff') { Fail 'download is missing nosniff' }
+if ($probe.Headers['Content-Length'] -ne "$($zipBytes.Length)") { Fail "Content-Length $($probe.Headers['Content-Length']) != $($zipBytes.Length)" }
+
+$fetched = RawHttp 'GET' "$base/resources/$($resource.id)/download" $null $null $null $null $null
+if ($fetched.Status -ne 200) { Fail "download expected 200 got $($fetched.Status)" }
+$counted = Call GET '/admin/resources' $null $token 200
+if ($counted.items[0].downloadCount -ne 1) { Fail "expected downloadCount 1 after one GET, got $($counted.items[0].downloadCount)" }
+Write-Output "    download ok, count=$($counted.items[0].downloadCount)"
+
+# html is not on the extension allow-list: an uploaded page must never become
+# something a browser could render.
+$html = Join-Path $run 'evil.html'
+[IO.File]::WriteAllText($html, '<script>alert(1)</script>')
+$badResource = UploadResource $html $token 'evil' 400
+Write-Output "    html upload rejected"
+
+Call PUT "/admin/resources/$($resource.id)" @{ visible = $false } $token 200 | Out-Null
+$hiddenList = Call GET '/resources' $null $null 200
+if ($hiddenList.total -ne 0) { Fail "hidden resource still listed publicly: $($hiddenList.total)" }
+$hiddenGet = RawHttp 'GET' "$base/resources/$($resource.id)/download" $null $null $null $null $null
+if ($hiddenGet.Status -ne 404) { Fail "hidden resource still downloadable: $($hiddenGet.Status)" }
+Write-Output '    hidden resource is neither listed nor downloadable'
+
+Call DELETE "/admin/resources/$($resource.id)" $null $token 204 | Out-Null
+$afterDelete = RawHttp 'GET' "$base/resources/$($resource.id)/download" $null $null $null $null $null
+if ($afterDelete.Status -ne 404) { Fail "deleted resource still downloadable: $($afterDelete.Status)" }
+Write-Output '    deleted resource is gone'
 
 Write-Output '=== password change ==='
 # A wrong *current* password is 400, deliberately not 401: the session is still

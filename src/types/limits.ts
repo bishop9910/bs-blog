@@ -34,8 +34,16 @@ export interface SiteLimits {
   maxSocialLabelLength: number
 }
 
+export interface ResourceLimits {
+  /** Per-file ceiling in bytes (resources.maxUploadBytes). */
+  maxUploadBytes: number
+  /** Lowercase extensions without the dot, sorted: also used as the file picker's accept list. */
+  allowedExtensions: string[]
+}
+
 export interface Limits {
   media: MediaLimits
   music: MusicLimits
+  resources: ResourceLimits
   site: SiteLimits
 }
