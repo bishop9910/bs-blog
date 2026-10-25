@@ -12,12 +12,21 @@ import { NButton, NDataTable, NInput, NPopconfirm, NProgress, useMessage } from 
 import type { DataTableColumns } from 'naive-ui'
 import {
   PhArrowsClockwise,
+  PhFileText,
   PhHardDrives,
   PhMusicNotes,
   PhTrash,
   PhUploadSimple,
+  PhX,
 } from '@phosphor-icons/vue'
-import { deleteMusic, getAdminMusic, rescanMusic, uploadMusic } from '@/api/music'
+import {
+  clearTrackLyrics,
+  deleteMusic,
+  getAdminMusic,
+  rescanMusic,
+  setTrackLyrics,
+  uploadMusic,
+} from '@/api/music'
 import { useLimits } from '@/composables/useLimits'
 import type { MusicAdminLibrary, MusicTrack } from '@/types/music'
 import { formatDurationMs } from '@/utils/time'
@@ -35,6 +44,11 @@ const progress = ref(0)
 const dragOver = ref(false)
 const keyword = ref('')
 const fileInput = ref<HTMLInputElement | null>(null)
+const lyricsInput = ref<HTMLInputElement | null>(null)
+// A lyrics file picked here rides along with the next upload only. It is not
+// remembered between rounds: the wrong .lrc silently attached to a later track
+// would look like the scanner had mixed two songs up.
+const lyricsChoice = ref<File | null>(null)
 
 // The accepted extensions are the ones the scanner indexes (music.extensions),
 // so a listed format is always one the file dialog offers; the audio/* entry
@@ -46,8 +60,93 @@ const acceptAttr = computed(() => {
 })
 
 const uploadHint = computed(
-  () => `文件会写入音乐目录，标签和封面由后端读取，不需要在前端填。单个文件不超过 ${formatBytes(limits.value.music.maxUploadBytes)}`,
+  () =>
+    `文件会写入音乐目录，标签和封面由后端读取，不需要在前端填。单个文件不超过 ${formatBytes(limits.value.music.maxUploadBytes)}；歌词可选，不超过 ${formatBytes(limits.value.music.maxLyricsBytes)}`,
 )
+
+const lyricsHint = computed(() => {
+  if (lyricsChoice.value) return `${lyricsChoice.value.name} 会一起上传`
+  return '歌词可选：单首上传时可以附一份 .lrc；多首一起传完再在下表里逐个添加'
+})
+
+// chooseLyrics validates a picked .lrc locally. The server repeats both checks;
+// doing them here keeps a wrong file from costing an upload. Returns whether the
+// file was accepted so a drop can decide to actually attach it.
+function chooseLyrics(file: File | null): boolean {
+  if (!file) {
+    lyricsChoice.value = null
+    return true
+  }
+  if (!file.name.toLowerCase().endsWith('.lrc')) {
+    message.warning('歌词文件需要是 .lrc 格式')
+    return false
+  }
+  if (file.size > limits.value.music.maxLyricsBytes) {
+    message.warning(`歌词超过 ${formatBytes(limits.value.music.maxLyricsBytes)}，已忽略`)
+    return false
+  }
+  lyricsChoice.value = file
+  return true
+}
+
+function onPickLyrics(event: Event): void {
+  const input = event.target as HTMLInputElement
+  chooseLyrics(input.files?.[0] ?? null)
+  input.value = ''
+}
+
+function clearLyrics(): void {
+  lyricsChoice.value = null
+}
+
+// Per-track lyrics. A batch is usually dropped in first and its .lrc files turn
+// up afterwards, so the table has to be able to attach one later — one shared
+// hidden input remembers which row opened it.
+const rowLyricsInput = ref<HTMLInputElement | null>(null)
+const rowLyricsTarget = ref<MusicTrack | null>(null)
+
+function pickRowLyrics(track: MusicTrack): void {
+  rowLyricsTarget.value = track
+  rowLyricsInput.value?.click()
+}
+
+async function onRowLyrics(event: Event): Promise<void> {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0] ?? null
+  const target = rowLyricsTarget.value
+  input.value = ''
+  rowLyricsTarget.value = null
+  if (!file || !target) return
+
+  // Same local checks as the upload form: a wrong file should cost a message,
+  // not a round trip. The server enforces both again.
+  if (!file.name.toLowerCase().endsWith('.lrc')) {
+    message.warning('歌词文件需要是 .lrc 格式')
+    return
+  }
+  if (file.size > limits.value.music.maxLyricsBytes) {
+    message.warning(`歌词超过 ${formatBytes(limits.value.music.maxLyricsBytes)}`)
+    return
+  }
+
+  try {
+    await setTrackLyrics(target.id, file)
+    message.success(`已为《${target.title}》更新歌词`)
+    await load()
+  } catch (caught) {
+    message.error(caught instanceof Error ? caught.message : '歌词更新失败')
+  }
+}
+
+async function removeRowLyrics(track: MusicTrack): Promise<void> {
+  try {
+    await clearTrackLyrics(track.id)
+    message.success('已移除歌词')
+    await load()
+  } catch (caught) {
+    message.error(caught instanceof Error ? caught.message : '移除歌词失败')
+  }
+}
 
 const rows = computed<MusicTrack[]>(() => {
   const needle = keyword.value.trim().toLowerCase()
@@ -84,11 +183,34 @@ async function rescan(): Promise<void> {
 async function handleFiles(files: FileList | null): Promise<void> {
   if (!files || files.length === 0) return
 
+  // A drop can carry the audio and its .lrc together. Which is which is decided
+  // by the extension: the scanner's own list never contains lrc, so anything
+  // ending in .lrc is lyrics and everything else is audio.
+  const picked = Array.from(files)
+  const droppedLyrics = picked.filter((file) => file.name.toLowerCase().endsWith('.lrc'))
+  const audio = picked.filter((file) => !file.name.toLowerCase().endsWith('.lrc'))
+
+  if (audio.length === 0) {
+    if (droppedLyrics.length > 0) message.warning('歌词要和一个音频文件一起上传')
+    return
+  }
+
+  const firstLyrics = droppedLyrics[0]
+  if (firstLyrics) chooseLyrics(firstLyrics)
+
+  // One .lrc belongs to one track. Attaching it to every file of a batch would
+  // give all but the first the wrong lyrics, so a batch upload goes without.
+  let lyrics = lyricsChoice.value
+  if (audio.length > 1 && lyrics) {
+    message.warning('歌词只会附加到单个文件，这次先只上传音频')
+    lyrics = null
+  }
+
   uploading.value = true
   progress.value = 0
   let uploaded = 0
   try {
-    for (const file of Array.from(files)) {
+    for (const file of audio) {
       // Fail locally rather than after the transfer: the server enforces the same
       // cap, and re-uploading a skipped file is the author's decision to make.
       if (file.size > limits.value.music.maxUploadBytes) {
@@ -97,7 +219,7 @@ async function handleFiles(files: FileList | null): Promise<void> {
         )
         continue
       }
-      await uploadMusic(file, (percent) => {
+      await uploadMusic(file, lyrics, (percent) => {
         progress.value = percent
       })
       uploaded += 1
@@ -109,7 +231,9 @@ async function handleFiles(files: FileList | null): Promise<void> {
   } finally {
     uploading.value = false
     progress.value = 0
+    lyricsChoice.value = null
     if (fileInput.value) fileInput.value.value = ''
+    if (lyricsInput.value) lyricsInput.value.value = ''
   }
 }
 
@@ -159,21 +283,48 @@ const columns: DataTableColumns<MusicTrack> = [
   {
     title: '操作',
     key: 'actions',
-    width: 76,
+    width: 132,
     render: (row) =>
-      h(
-        NPopconfirm,
-        { onPositiveClick: () => void remove(row) },
-        {
-          trigger: () =>
-            h(
-              NButton,
-              { size: 'tiny', quaternary: true, type: 'error', title: '删除' },
-              { icon: () => h(PhTrash, { size: 14 }) },
-            ),
-          default: () => '删除会把磁盘上的音频文件一起删掉，确定吗?',
-        },
-      ),
+      h('div', { class: 'row-actions' }, [
+        h(
+          NButton,
+          {
+            size: 'tiny',
+            quaternary: true,
+            title: row.hasLyrics ? '替换歌词' : '添加歌词',
+            onClick: () => pickRowLyrics(row),
+          },
+          { icon: () => h(PhFileText, { size: 14 }) },
+        ),
+        row.hasLyrics
+          ? h(
+              NPopconfirm,
+              { onPositiveClick: () => void removeRowLyrics(row) },
+              {
+                trigger: () =>
+                  h(
+                    NButton,
+                    { size: 'tiny', quaternary: true, type: 'warning', title: '移除歌词' },
+                    { icon: () => h(PhX, { size: 14 }) },
+                  ),
+                default: () => '只删这首歌的 .lrc 文件，音频不动，确定吗?',
+              },
+            )
+          : null,
+        h(
+          NPopconfirm,
+          { onPositiveClick: () => void remove(row) },
+          {
+            trigger: () =>
+              h(
+                NButton,
+                { size: 'tiny', quaternary: true, type: 'error', title: '删除' },
+                { icon: () => h(PhTrash, { size: 14 }) },
+              ),
+            default: () => '删除会把磁盘上的音频文件一起删掉，确定吗?',
+          },
+        ),
+      ]),
   },
 ]
 
@@ -260,6 +411,31 @@ onMounted(() => {
       <p class="drop__hint">{{ uploadHint }}</p>
       <NProgress v-if="uploading" class="drop__progress" type="line" :percentage="progress" :show-indicator="false" processing />
     </section>
+
+    <div class="lyrics">
+      <input
+        ref="lyricsInput"
+        class="drop__input"
+        type="file"
+        accept=".lrc"
+        @change="onPickLyrics"
+      />
+      <PhFileText :size="16" weight="duotone" aria-hidden="true" />
+      <span class="lyrics__text" :class="{ 'is-chosen': lyricsChoice }">{{ lyricsHint }}</span>
+      <NButton size="tiny" secondary @click="lyricsInput?.click()">
+        {{ lyricsChoice ? '更换歌词' : '选择歌词' }}
+      </NButton>
+      <NButton v-if="lyricsChoice" size="tiny" quaternary @click="clearLyrics">移除</NButton>
+    </div>
+
+    <!-- Shared file picker for the per-track lyrics buttons in the table. -->
+    <input
+      ref="rowLyricsInput"
+      class="drop__input"
+      type="file"
+      accept=".lrc"
+      @change="onRowLyrics"
+    />
 
     <section class="card">
       <header class="card__toolbar">
@@ -459,6 +635,33 @@ onMounted(() => {
 .drop__progress {
   width: min(320px, 100%);
   margin-top: var(--space-sm);
+}
+
+.lyrics {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 0 var(--space-sm);
+  color: var(--text-muted);
+}
+
+.lyrics__text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--text-2xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lyrics__text.is-chosen {
+  color: var(--text-secondary);
+}
+
+.row-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
 }
 
 .empty {

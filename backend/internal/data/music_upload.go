@@ -3,6 +3,7 @@ package data
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -62,7 +63,14 @@ func (r *MusicRepo) extAllowed(ext string) bool {
 // choose where it goes or what it is called, and the year/month split keeps any
 // one directory small. The new track is added to the index directly instead of
 // rescanning the directory.
-func (r *MusicRepo) Save(_ context.Context, header *multipart.FileHeader) (*MusicTrack, error) {
+//
+// An optional lyrics file is written next to the audio as <uuid>.lrc, which is
+// exactly the sidecar name the scanner looks for. Writing it before indexing
+// means the fresh track already reports hasLyrics.
+func (r *MusicRepo) Save(
+	_ context.Context,
+	header, lyrics *multipart.FileHeader,
+) (*MusicTrack, error) {
 	if r.root == "" {
 		return nil, ErrMusicDisabled
 	}
@@ -132,11 +140,22 @@ func (r *MusicRepo) Save(_ context.Context, header *multipart.FileHeader) (*Musi
 		return nil, closeErr
 	}
 
+	if lyrics != nil {
+		if err := r.writeLyrics(storedPath, lyrics); err != nil {
+			_ = os.Remove(storedPath)
+			return nil, err
+		}
+	}
+
 	track, err := r.indexFile(storedPath)
 	if err != nil {
 		// A file the index cannot describe would never be listed, so keeping it
-		// would leave an orphan nobody can see or delete.
+		// would leave an orphan nobody can see or delete. The lyrics go with it:
+		// their name is derived from the audio file, and that file never existed.
 		_ = os.Remove(storedPath)
+		if lyrics != nil {
+			_ = os.Remove(lyricsPath(storedPath))
+		}
 		return nil, err
 	}
 	// An untagged upload is titled after the generated name on disk, which says
@@ -148,6 +167,85 @@ func (r *MusicRepo) Save(_ context.Context, header *multipart.FileHeader) (*Musi
 	}
 	r.insert(track)
 	return track, nil
+}
+
+// writeLyrics stores an uploaded .lrc next to its audio file.
+//
+// The name is derived from the stored audio path rather than taken from the
+// client, so the pair sits in the layout the scanner already understands and the
+// upload cannot pick a directory. The text is copied unchanged: readLyrics
+// decodes the UTF-8 BOM and GBK/GB18030 files Chinese editors produce, so
+// re-encoding here would only add a way to corrupt it.
+func (r *MusicRepo) writeLyrics(audioPath string, header *multipart.FileHeader) error {
+	src, err := header.Open()
+	if err != nil {
+		return err
+	}
+	defer src.Close()
+
+	// The size cap is checked by the use case; this bound only makes sure a
+	// header that understated its size cannot grow the library past it.
+	text, err := io.ReadAll(io.LimitReader(src, r.lyricsBytes+1))
+	if err != nil {
+		return err
+	}
+	if int64(len(text)) > r.lyricsBytes {
+		return fmt.Errorf("data: lyrics sidecar exceeds %d bytes", r.lyricsBytes)
+	}
+	return os.WriteFile(lyricsPath(audioPath), text, 0o644)
+}
+
+// SetLyrics attaches, replaces or removes the .lrc of a track that is already in
+// the library. A nil header removes the file.
+//
+// Uploading audio and lyrics in one request covers the common case; this covers
+// the other two: a song whose lyrics were not at hand while uploading, and a
+// .lrc that turns out to be the wrong one. Both are a file next to the audio, so
+// no separate storage is involved and the scanner keeps treating the result like
+// any hand-placed sidecar.
+func (r *MusicRepo) SetLyrics(
+	_ context.Context,
+	id string,
+	header *multipart.FileHeader,
+) (*MusicTrack, error) {
+	track, err := r.lookup(id)
+	if err != nil {
+		return nil, err
+	}
+	if !withinRoot(r.root, track.Path) {
+		return nil, ErrNotFound
+	}
+
+	path := lyricsPath(track.Path)
+	if header == nil {
+		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+			return nil, err
+		}
+	} else if err := r.writeLyrics(track.Path, header); err != nil {
+		return nil, err
+	}
+
+	// Only the lyrics flag can change here. Re-indexing the file instead would
+	// re-read its tags and throw away everything the index already knows: an
+	// untagged upload is titled after the name the client sent, which no longer
+	// exists anywhere on disk.
+	updated := *track
+	updated.HasLyrics = r.lyricsOnDisk(track.Path)
+	r.insert(&updated)
+	return &updated, nil
+}
+
+// lyricsOnDisk reports whether the .lrc (or a sidecar that supplies lyrics) is
+// there, without touching the rest of a track's metadata.
+func (r *MusicRepo) lyricsOnDisk(audioPath string) bool {
+	sc, err := readSidecar(sidecarPath(audioPath))
+	if err != nil {
+		if !os.IsNotExist(err) {
+			r.logger.Warnf("data: ignoring sidecar of %s: %v", audioPath, err)
+		}
+		sc = nil
+	}
+	return r.hasLyrics(audioPath, sc)
 }
 
 // Delete removes a track's file from disk and drops it from the index.

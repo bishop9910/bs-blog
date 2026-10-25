@@ -158,5 +158,8 @@ export const http = {
   put: <T>(path: string, body?: unknown) => request<T>(path, { method: 'PUT', body }),
   patch: <T>(path: string, body?: unknown) => request<T>(path, { method: 'PATCH', body }),
   delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
-  upload: <T>(path: string, form: FormData) => request<T>(path, { method: 'POST', body: form }),
+  // `method` exists for the few routes that replace a file in place: a lyrics
+  // upload goes to PUT /admin/music/{id}/lyrics, and everything else is a POST.
+  upload: <T>(path: string, form: FormData, method: 'POST' | 'PUT' = 'POST') =>
+    request<T>(path, { method, body: form }),
 }

@@ -160,6 +160,8 @@ func (h *Handler) Register(srv *khttp.Server) {
 	h.route(r, http.MethodGet, "/admin/music", h.authed(h.adminMusic))
 	h.route(r, http.MethodPost, "/admin/music/rescan", h.authed(h.rescanMusic))
 	h.route(r, http.MethodPost, "/admin/music/upload", h.authed(h.uploadMusic))
+	h.route(r, http.MethodPut, "/admin/music/{id}/lyrics", h.authed(h.setMusicLyrics))
+	h.route(r, http.MethodDelete, "/admin/music/{id}/lyrics", h.authed(h.clearMusicLyrics))
 	h.route(r, http.MethodDelete, "/admin/music/{id}", h.authed(h.deleteMusic))
 
 	// Admin: site metadata.

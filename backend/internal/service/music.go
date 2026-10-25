@@ -2,6 +2,7 @@ package service
 
 import (
 	"errors"
+	"mime/multipart"
 	"net/http"
 	"path/filepath"
 	"regexp"
@@ -164,11 +165,70 @@ func (h *Handler) uploadMusic(ctx khttp.Context, _ *biz.CurrentUser) error {
 	// The use case reopens the header itself, so this handle only needs closing.
 	_ = file.Close()
 
-	track, err := h.music.Save(ctx, header)
+	// Lyrics are optional: the part is simply absent when the author uploads
+	// only audio, which is the common case and not an error.
+	var lyricsHeader *multipart.FileHeader
+	if lyricsFile, lyricsPart, err := req.FormFile("lyrics"); err == nil {
+		_ = lyricsFile.Close()
+		lyricsHeader = lyricsPart
+	} else if !errors.Is(err, http.ErrMissingFile) {
+		return kerrors.BadRequest("INVALID_ARGUMENT", "歌词文件无法读取")
+	}
+
+	track, err := h.music.Save(ctx, header, lyricsHeader)
 	if err != nil {
 		return err
 	}
 	return ctx.JSON(http.StatusCreated, track)
+}
+
+// setMusicLyrics replaces a track's .lrc with one the author picks now, and
+// clearMusicLyrics removes it. Both answer with the refreshed track so the admin
+// table can show the new state without a second request.
+func (h *Handler) setMusicLyrics(ctx khttp.Context, _ *biz.CurrentUser) error {
+	id, err := musicPathID(ctx)
+	if err != nil {
+		return err
+	}
+
+	req := ctx.Request()
+	if err := req.ParseMultipartForm(4 << 20); err != nil {
+		var maxErr *http.MaxBytesError
+		if errors.As(err, &maxErr) {
+			return kerrors.New(http.StatusRequestEntityTooLarge, "PAYLOAD_TOO_LARGE", "上传内容过大")
+		}
+		return kerrors.BadRequest("INVALID_ARGUMENT", "上传数据无法解析")
+	}
+	defer func() {
+		if req.MultipartForm != nil {
+			_ = req.MultipartForm.RemoveAll()
+		}
+	}()
+
+	file, header, err := req.FormFile("lyrics")
+	if err != nil {
+		return kerrors.BadRequest("INVALID_ARGUMENT", "请选择要上传的歌词文件")
+	}
+	_ = file.Close()
+
+	track, err := h.music.SetLyrics(ctx, id, header)
+	if err != nil {
+		return err
+	}
+	return ctx.JSON(http.StatusOK, track)
+}
+
+func (h *Handler) clearMusicLyrics(ctx khttp.Context, _ *biz.CurrentUser) error {
+	id, err := musicPathID(ctx)
+	if err != nil {
+		return err
+	}
+
+	track, err := h.music.SetLyrics(ctx, id, nil)
+	if err != nil {
+		return err
+	}
+	return ctx.JSON(http.StatusOK, track)
 }
 
 // deleteMusic removes a track and its file from disk.

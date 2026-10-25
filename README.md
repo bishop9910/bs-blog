@@ -205,6 +205,8 @@ cd backend && go run ./cmd/dbdump ../data/blog.db
 - 歌词优先取文件内嵌的，其次取同名 `.lrc`（UTF-8 或 GB18030 都能读，`[offset:]` 会被应用）；同一时间戳连续写多行时，第一行当原文、其余当译文
 - 同目录放一个与音频同名的 `.json`（`{title,artist,album,albumArtist,year,cover,lyrics}`）可以覆盖标签，`cover` 是相对音频文件的图片路径
 - 丢进去之后 `music.watch` 会在 2 秒防抖后自动重扫；也可以在后台「音乐」页点**重新扫描**，或直接拖放上传
+- 上传时歌词可以一起传：在后台「音乐」页点**选择歌词**挑一份 `.lrc`（或把 `.lrc` 和音频一起拖进去），后端把它写成 `<id>.lrc` 放在音频旁边，和手动放进去的 sidecar 完全一样；歌词只跟着**单个**音频上传，批量上传时会被忽略而不是错挂到每首歌上
+- 上传之后也能加、能换：曲目表每行的歌词按钮可以替换或删掉这首歌的 `.lrc`（`PUT` / `DELETE /api/v1/admin/music/{id}/lyrics`），所以「先一次拖一堆音频、歌词随后再补」是正常流程；删除只动 `.lrc`，音频和 `.json` sidecar 都不碰
 - 播放走 `GET /api/v1/music/stream/{id}`（支持 Range，拖进度条不会重下整首），封面走 `/api/v1/music/cover/{id}` 并缓存一天
 
 前端是**同源**取音频的，所以 `AnalyserNode` 能直接读正在播放的声音——进度条上方那排频谱不是随机数，是当前这首歌的实时频率。

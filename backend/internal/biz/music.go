@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"mime/multipart"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -45,8 +46,13 @@ type MusicRepo interface {
 	Lyrics(ctx context.Context, id string) (string, error)
 	// Rescan rebuilds the index from disk.
 	Rescan(ctx context.Context) (*MusicLibrary, error)
-	// Save writes an uploaded audio file into the library and indexes it.
-	Save(ctx context.Context, header *multipart.FileHeader) (*MusicTrack, error)
+	// Save writes an uploaded audio file into the library and indexes it. A nil
+	// lyrics header means the track keeps whatever lyrics its tags or its
+	// directory already carry.
+	Save(ctx context.Context, header, lyrics *multipart.FileHeader) (*MusicTrack, error)
+	// SetLyrics replaces (or, with a nil header, removes) the lyrics of a track
+	// that is already in the library.
+	SetLyrics(ctx context.Context, id string, lyrics *multipart.FileHeader) (*MusicTrack, error)
 	// Delete removes a track's file and its sidecars from disk.
 	Delete(ctx context.Context, id string) error
 }
@@ -244,7 +250,14 @@ func (uc *MusicUsecase) OpenCover(ctx context.Context, id string) (*MusicCover, 
 // Save validates an uploaded audio file and hands it to the library. The size
 // ceiling is checked here rather than there because the value comes from the
 // configuration and the message is user-facing.
-func (uc *MusicUsecase) Save(ctx context.Context, header *multipart.FileHeader) (*MusicTrackDTO, error) {
+//
+// The optional lyrics header is a .lrc the author picked alongside the audio:
+// tagging by hand is the one thing a browser upload cannot do, and a library
+// that only reads lyrics off disk would otherwise need a second tool for it.
+func (uc *MusicUsecase) Save(
+	ctx context.Context,
+	header, lyrics *multipart.FileHeader,
+) (*MusicTrackDTO, error) {
 	if header == nil {
 		return nil, errBadRequest("请选择要上传的音频文件")
 	}
@@ -254,8 +267,13 @@ func (uc *MusicUsecase) Save(ctx context.Context, header *multipart.FileHeader) 
 	if header.Size > uc.limits.MaxUploadBytes {
 		return nil, errBadRequest(fmt.Sprintf("音频不能超过 %d MB", uc.limits.MaxUploadBytes>>20))
 	}
+	if lyrics != nil {
+		if err := uc.validateLyrics(lyrics); err != nil {
+			return nil, err
+		}
+	}
 
-	track, err := uc.repo.Save(ctx, header)
+	track, err := uc.repo.Save(ctx, header, lyrics)
 	if err != nil {
 		switch {
 		case errors.Is(err, data.ErrMusicFormat):
@@ -268,6 +286,55 @@ func (uc *MusicUsecase) Save(ctx context.Context, header *multipart.FileHeader) 
 
 	dto := toMusicTrackDTO(track)
 	return &dto, nil
+}
+
+// SetLyrics replaces the lyrics of a track already in the library, or removes
+// them when no file is given.
+//
+// This exists because the common case cannot attach lyrics up front: a batch of
+// songs is dropped in first, and the .lrc files are found afterwards. The
+// replacement is a plain file swap next to the audio, so the scanner and the
+// lyrics route keep reading it exactly like a hand-placed sidecar.
+func (uc *MusicUsecase) SetLyrics(
+	ctx context.Context,
+	id string,
+	lyrics *multipart.FileHeader,
+) (*MusicTrackDTO, error) {
+	if lyrics != nil {
+		if err := uc.validateLyrics(lyrics); err != nil {
+			return nil, err
+		}
+	}
+
+	track, err := uc.repo.SetLyrics(ctx, id, lyrics)
+	if err != nil {
+		switch {
+		case errors.Is(err, data.ErrNotFound):
+			return nil, errNotFoundError("曲目不存在")
+		case errors.Is(err, data.ErrMusicDisabled):
+			return nil, errBadRequest("音乐库未启用，请先配置 music.dir")
+		}
+		return nil, internal("无法保存歌词文件", err)
+	}
+
+	dto := toMusicTrackDTO(track)
+	return &dto, nil
+}
+
+// validateLyrics applies the checks every uploaded .lrc has to pass. Both entry
+// points — beside the audio and after the fact — accept the same file, so the
+// rules live in one place.
+func (uc *MusicUsecase) validateLyrics(header *multipart.FileHeader) error {
+	if !strings.EqualFold(filepath.Ext(strings.TrimSpace(header.Filename)), ".lrc") {
+		return errBadRequest("歌词文件必须是 .lrc 格式")
+	}
+	if header.Size <= 0 {
+		return errBadRequest("歌词文件内容为空")
+	}
+	if header.Size > uc.limits.MaxLyricsBytes {
+		return errBadRequest(fmt.Sprintf("歌词不能超过 %d KB", uc.limits.MaxLyricsBytes>>10))
+	}
+	return nil
 }
 
 // Delete removes a track from the library and its file from disk.
